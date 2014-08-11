@@ -65,5 +65,8 @@ int main(int argc, char * argv[]) {
     for(i = 0; i < NUMITEMS; i ++) {
         if(data1[i] != data2[i]) abort();
     }
+    free(data1);
+    free(data2);
+    free(data3);
     return 0;
 }

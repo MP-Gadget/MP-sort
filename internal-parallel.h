@@ -195,6 +195,76 @@ static void _solve_for_layout (
 #endif
 
 }
+struct piter {
+    int * stable;
+    int * narrow;
+    int Plength;
+    char * Pleft;
+    char * Pright;
+    struct crstruct * d;
+};
+static void piter_init(struct piter * pi, 
+        char * Pmin, char * Pmax, int Plength,
+        struct crstruct * d) {
+    pi->stable = calloc(Plength, sizeof(int));
+    pi->narrow = calloc(Plength, sizeof(int));
+    pi->d = d;
+    pi->Pleft = calloc(Plength, d->rsize);
+    pi->Pright = calloc(Plength, d->rsize);
+    pi->Plength = Plength;
+    
+    int i;
+    for(i = 0; i < pi->Plength; i ++) {
+        memcpy(&pi->Pleft[i * d->rsize], Pmin, d->rsize);
+        memcpy(&pi->Pright[i * d->rsize], Pmax, d->rsize);
+    } 
+}
+static void piter_destroy(struct piter * pi) {
+    free(pi->stable);
+    free(pi->narrow);
+    free(pi->Pleft);
+    free(pi->Pright);
+}
+static void piter_next(struct piter * pi, char * P) {
+    struct crstruct * d = pi->d;
+    int i;
+    for(i = 0; i < pi->Plength; i ++) {
+        if(pi->narrow[i]) {
+            /* The last iteration, test Pright directly */
+            memcpy(&P[i * d->rsize],
+                &pi->Pright[i * d->rsize], 
+                d->rsize);
+            pi->stable[i] = 1;
+        } else {
+            /* ordinary iteration */
+            d->bisect(&P[i * d->rsize], 
+                    &pi->Pleft[i * d->rsize], 
+                    &pi->Pright[i * d->rsize], d->rsize);
+            /* in case the bisect can't move P beyond left,
+             * the range is too small, so we set flag narrow, 
+             * and next iteration we will directly test Pright */
+            if(d->compar(&P[i * d->rsize], 
+                &pi->Pleft[i * d->rsize], d->rsize) == 0) {
+                pi->narrow[i] = 1; 
+            }
+        }
+#if 0
+        printf("bisect %d %d %u %u %u\n", iter, i, *(int*) &o->P[i * d->rsize], 
+                *(int*) &o->Pleft[i * d->rsize], 
+                *(int*) &o->Pright[i * d->rsize]);
+#endif
+    }
+}
+static int piter_done(struct piter * pi) {
+    int i;
+    int done = 1;
+    for(i = 0; i < pi->Plength; i ++) {
+        if(!pi->stable[i]) done = 0;
+        break;
+    }
+    return done;
+}
+
 #if 0
 static ptrdiff_t _radix_count_lt_stupid(void * P, 
         void * base, size_t nmemb, 

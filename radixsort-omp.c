@@ -12,14 +12,10 @@
 #include "radixsort.h"
 
 struct crompstruct {
-    char * P0;
+    struct piter pi;
     char * P;
-    char * Pleft;
-    char * Pright;
     char * Pmax;
     char * Pmin;
-    int * stable;
-    int * narrow;
     ptrdiff_t * C; /* expected counts */
     ptrdiff_t * CLT; /* counts of less than P */
     ptrdiff_t * CLE; /* counts of less than or equal to P */
@@ -71,7 +67,6 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
 #pragma omp parallel
     {
         int NTask = omp_get_num_threads();
-        o.Pmax = o.P + NTask * d.rsize;
 #pragma omp master 
         {
             int i;
@@ -90,13 +85,8 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
 
 static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
     int NTaskMax = omp_get_max_threads();
-    o->stable = calloc(NTaskMax, sizeof(int));
-    o->narrow = calloc(NTaskMax, sizeof(int));
 
-    o->P0 = calloc(NTaskMax + 2, d->rsize);
-    o->Pleft = calloc(NTaskMax, d->rsize);
-    o->Pright = calloc(NTaskMax, d->rsize);
-    o->P = o->P0 + d->rsize;
+    o->P = calloc(NTaskMax, d->rsize);
 
     int NTaskMax1 = NTaskMax + 1;
     size_t NTaskMax12 = (NTaskMax + 1) * (NTaskMax + 1);
@@ -110,8 +100,10 @@ static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
     o->CLT = calloc(NTaskMax1, sizeof(ptrdiff_t)); /* counts of less than P */
     o->CLE = calloc(NTaskMax1, sizeof(ptrdiff_t)); /* counts of less than or equal to P */
 
-    o->Pmin = o->P0;
+    o->Pmin = calloc(1, d->rsize);
+    o->Pmax = calloc(1, d->rsize);
     memset(o->Pmin, -1, d->rsize);
+    memset(o->Pmax, 0, d->rsize);
 }
 static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
     free(o->CLE);
@@ -120,12 +112,9 @@ static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d)
     free(o->GL_C);
     free(o->GL_CLE);
     free(o->GL_CLT);
-    free(o->P0);
-    free(o->Pleft);
-    free(o->Pright);
-    free(o->stable);
-    free(o->narrow);
-
+    free(o->Pmin);
+    free(o->Pmax);
+    free(o->P);
 }
 
 static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb, 
@@ -134,59 +123,30 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
     int NTask = omp_get_num_threads();
     int ThisTask = omp_get_thread_num();
 
-    memcpy(&o->Pleft[ThisTask * d->rsize], o->Pmin, d->rsize);
-    memcpy(&o->Pright[ThisTask * d->rsize], o->Pmax, d->rsize);
-
     ptrdiff_t myCLT[NTask + 1]; /* counts of less than P */
     ptrdiff_t myCLE[NTask + 1]; /* counts of less than or equal to P */
+
+#pragma omp single
+    {
+        piter_init(&o->pi, o->Pmin, o->Pmax, NTask - 1, d);
+    }
 
     int iter = 0;
     int i;
 
     int done = 0;
 
-    for(i = 0; i < NTask; i ++) {
-        o->narrow[i] = 0;
-        o->stable[i] = 0;
-    }
-
     while(!done) {
-
-#pragma omp master
+#pragma omp barrier
+#pragma omp single
         {
-            for(i = 0; i < NTask - 1; i ++) {
-                if(o->narrow[i]) {
-                    /* The last iteration, test Pright directly */
-                    memcpy(&o->P[i * d->rsize],
-                        &o->Pright[i * d->rsize], 
-                        d->rsize);
-                    o->stable[i] = 1;
-                } else {
-                    /* ordinary iteration */
-                    d->bisect(&o->P[i * d->rsize], 
-                            &o->Pleft[i * d->rsize], 
-                            &o->Pright[i * d->rsize], d->rsize);
-                    /* in case the bisect can't move P beyond left,
-                     * the range is too small, so we set flag narrow, 
-                     * and next iteration we will directly test Pright */
-                    if(d->compar(&o->P[i * d->rsize], 
-                        &o->Pleft[i * d->rsize], d->rsize) == 0) {
-                        o->narrow[i] = 1; 
-                    }
-                }
-#if 0
-                printf("bisect %d %d %u %u %u\n", iter, i, *(int*) &o->P[i * d->rsize], 
-                        *(int*) &o->Pleft[i * d->rsize], 
-                        *(int*) &o->Pright[i * d->rsize]);
-#endif
-            }
+            piter_next(&o->pi, o->P);
             for(i = 0; i < NTask + 1; i ++) {
                 o->CLT[i] = 0;
                 o->CLE[i] = 0;
             }
         }
 
-#pragma omp barrier
         iter ++;
 
         _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
@@ -203,21 +163,19 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
         }
 
 #pragma omp barrier
-
-#pragma omp master 
+#pragma omp single
         {
             for(i = 0; i < NTask - 1; i ++) {
-                if(o->stable[i]) continue;
                 if( o->CLT[i + 1] < o->C[i + 1] && o->C[i + 1] <= o->CLE[i + 1]) {
-                    memcpy(&o->Pright[i * d->rsize], 
-                           &o->P[i * d->rsize], d->rsize);
+                    o->pi.stable[i] = 1;
+                    continue;
                 } else {
                     if(o->CLT[i + 1] >= o->C[i + 1]) {
                         /* P[i] is too big */
-                        memcpy(&o->Pright[i * d->rsize], &o->P[i * d->rsize], d->rsize);
+                        memcpy(&o->pi.Pright[i * d->rsize], &o->P[i * d->rsize], d->rsize);
                     } else {
                         /* P[i] is too small */
-                        memcpy(&o->Pleft[i * d->rsize], &o->P[i * d->rsize], d->rsize);
+                        memcpy(&o->pi.Pleft[i * d->rsize], &o->P[i * d->rsize], d->rsize);
                     }
                 }
             }
@@ -228,16 +186,15 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
             }
 #endif
         }
-#pragma omp barrier
 
-        done = 1;
-        int i;
-        for(i = 0; i < NTask - 1; i ++) {
-            if(!o->stable[i]) {
-                done = 0;
-            }
-        }
 #pragma omp barrier
+        done = piter_done(&o->pi);
+    }
+
+#pragma omp barrier
+#pragma omp single
+    {
+        piter_destroy(&o->pi);
     }
 
 }
@@ -287,7 +244,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
 
 #pragma omp barrier
 #if 0
-#pragma omp master 
+#pragma omp single
     {
         printf("AfterIteration: split , CLT, C, CLE\n");
         int i;
@@ -319,17 +276,13 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
 
     /* find split points in O->GL_C*/
 #pragma omp barrier
-#pragma omp master
+#pragma omp single
     {
         _solve_for_layout(NTask, o->C, o->GL_CLT, o->GL_CLE, o->GL_C);
     }
-#pragma omp barrier
 
     double t3 = omp_get_wtime();
     printf("find split took %g\n", t3 - t2);
-
-#pragma omp barrier
-
 
     /* exchange data */
     /* */

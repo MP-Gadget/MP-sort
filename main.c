@@ -7,6 +7,12 @@
 
 #include "radixsort.h"
 
+static double wtime() {
+    struct timespec t1;
+    clock_gettime(CLOCK_REALTIME, &t1);
+    return (double)((t1.tv_sec+t1.tv_nsec*1e-9));
+}
+
 static void radix_int(const void * ptr, void * radix, void * arg) {
     *(int*)radix = *(const int*) ptr;
 }
@@ -29,27 +35,27 @@ int main() {
     }
 
     {
-        double t0 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t0 = wtime();
         radix_sort_omp(data2, NUMITEMS, sizeof(int),
                 radix_int, sizeof(int),
                 NULL);
-        double t1 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t1 = wtime();
         printf("time spent omp: %g\n", t1 - t0);
     }
 
     {
-        double t0 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t0 = wtime();
         qsort(data3, NUMITEMS, sizeof(int), compar_int);
-        double t1 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t1 = wtime();
         printf("time spent qsort: %g\n", t1 - t0);
     }
     {
-        double t0 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t0 = wtime();
         radix_sort(data1, NUMITEMS, sizeof(int),
                 radix_int, sizeof(int),
                 NULL);
         printf("max is %u\n", data1[NUMITEMS - 1]);
-        double t1 = 1.0 * clock() / CLOCKS_PER_SEC;
+        double t1 = wtime();
         printf("time spent radix: %g\n", t1 - t0);
     }
     for(i = 0; i < NUMITEMS; i ++) {

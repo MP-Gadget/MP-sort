@@ -287,7 +287,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     int NTask = omp_get_num_threads();
     int ThisTask = omp_get_thread_num();
 
-    double t0 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t0 = omp_get_wtime();
 
     /* distribute the array and sort the local array */
     char * mybase = (char*) base + nmemb * ThisTask / NTask * d->size;
@@ -314,7 +314,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     }
 #pragma omp barrier
 
-    double t1 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t1 = omp_get_wtime();
     printf("Initial sort took %g\n", t1 - t0);
 
     
@@ -322,7 +322,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
 
     radix_sort_omp_single_iteration(mybase, mynmemb, d, o);
 
-    double t2 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t2 = omp_get_wtime();
     printf("counting took %g\n", t2 - t1);
 
 #pragma omp barrier
@@ -360,7 +360,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     /* find split points in O->Call*/
     _find_split_points(o);
 
-    double t3 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t3 = omp_get_wtime();
     printf("find split took %g\n", t3 - t2);
 
 #pragma omp barrier
@@ -412,12 +412,12 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
 #pragma omp barrier
 #endif
 
-    double t4 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t4 = omp_get_wtime();
     printf("exchange took %g\n", t4 - t3);
 
     qsort_r(mybase, mynmemb, d->size, _compute_and_compar_radix, d);
 
-    double t5 = 1.0 * clock() / CLOCKS_PER_SEC;
+    double t5 = omp_get_wtime();
     printf("final sort %g\n", t5 - t4);
 
 #pragma omp barrier

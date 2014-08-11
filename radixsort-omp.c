@@ -8,7 +8,7 @@
 
 #include "internal.h"
 
-#include "_bsearch.c"
+#include "internal-parallel.h"
 #include "radixsort.h"
 
 struct crompstruct {
@@ -23,9 +23,9 @@ struct crompstruct {
     ptrdiff_t * C; /* expected counts */
     ptrdiff_t * CLT; /* counts of less than P */
     ptrdiff_t * CLE; /* counts of less than or equal to P */
-    ptrdiff_t * CLTall; /* counts of less than P */
-    ptrdiff_t * CLEall; /* counts of less than or equal to P */
-    ptrdiff_t * Call; /* counts of less than or equal to P */
+    ptrdiff_t * GL_CLT; /* counts of less than P */
+    ptrdiff_t * GL_CLE; /* counts of less than or equal to P */
+    ptrdiff_t * GL_C; /* counts of less than or equal to P */
 };
 
 
@@ -102,9 +102,9 @@ static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
     size_t NTaskMax12 = (NTaskMax + 1) * (NTaskMax + 1);
 
     /* following variables are used in counting index by ThisTask + 1 */
-    o->CLTall = calloc(NTaskMax12, sizeof(ptrdiff_t));
-    o->CLEall = calloc(NTaskMax12, sizeof(ptrdiff_t));
-    o->Call = calloc(NTaskMax12, sizeof(ptrdiff_t));
+    o->GL_CLT = calloc(NTaskMax12, sizeof(ptrdiff_t));
+    o->GL_CLE = calloc(NTaskMax12, sizeof(ptrdiff_t));
+    o->GL_C = calloc(NTaskMax12, sizeof(ptrdiff_t));
 
     o->C = calloc(NTaskMax1, sizeof(ptrdiff_t)); /* expected counts */
     o->CLT = calloc(NTaskMax1, sizeof(ptrdiff_t)); /* counts of less than P */
@@ -117,9 +117,9 @@ static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d)
     free(o->CLE);
     free(o->CLT);
     free(o->C);
-    free(o->Call);
-    free(o->CLEall);
-    free(o->CLTall);
+    free(o->GL_C);
+    free(o->GL_CLE);
+    free(o->GL_CLT);
     free(o->P0);
     free(o->Pleft);
     free(o->Pright);
@@ -241,54 +241,7 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
     }
 
 }
-static void _find_split_points(struct crompstruct * o) {
-    int NTask = omp_get_num_threads();
-    int NTask1 = NTask + 1;
-#pragma omp barrier
-#pragma omp master
-    {
-        int i, j;
-        for(i = 0; i < NTask + 1; i ++) {
-            for(j = 0; j < NTask; j ++) {
-                o->Call[j * NTask1 + i] = o->CLTall[j * NTask1 + i];
-            }
-        }
-        for(i = 0; i < NTask; i ++) {
-            ptrdiff_t sure = 0;
-            /* solve*/
-            for(j = 0; j < NTask; j ++) {
-                sure += o->Call[j * NTask1 + i + 1] - o->Call[j * NTask1 + i];
-            }
-            ptrdiff_t diff = o->C[i + 1] - o->C[i] - sure;
-            for(j = 0; j < NTask; j ++) {
-                if(diff < 0) abort();
-                if(diff == 0) break;
-                ptrdiff_t supply = o->CLEall[j * NTask1 + i + 1] - o->Call[j * NTask1 + i + 1];
-                if(supply <= diff) {
-                    o->Call[j * NTask1 + i + 1] += supply;
-                    diff -= supply;
-                } else {
-                    o->Call[j * NTask1 + i + 1] += diff;
-                    diff = 0;
-                }
-            }
-        }
 
-#if 0
-        for(i = 0; i < NTask; i ++) {
-            for(j = 0; j < NTask + 1; j ++) {
-                printf("%d %d %d, ", 
-                        o->CLTall[i * NTask1 + j], 
-                        o->Call[i * NTask1 + j], 
-                        o->CLEall[i * NTask1 + j]);
-            }
-            printf("\n");
-        }
-#endif
-    }
-#pragma omp barrier
-
-}
 static void radix_sort_omp_single(void * base, size_t nmemb, 
         struct crstruct * d, struct crompstruct * o) {
     int NTask = omp_get_num_threads();
@@ -352,20 +305,25 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     int NTask1 = NTask + 1;
     int i;
     for(i = 0; i < NTask + 1; i ++) {
-        o->CLTall[ThisTask * NTask1 + i] = myCLT[i];
-        o->CLEall[ThisTask * NTask1 + i] = myCLE[i];
+        o->GL_CLT[ThisTask * NTask1 + i] = myCLT[i];
+        o->GL_CLE[ThisTask * NTask1 + i] = myCLE[i];
     }
 
     /* indexing is
-     * Call[Sender * NTask1 + Recver] */
+     * GL_C[Sender * NTask1 + Recver] */
     /* here we know:
-     * o->CLTall, o->CLEall
+     * o->GL_CLT, o->GL_CLE
      * The first NTask - 1 items in CLT and CLE gives the bounds of
      * split points  ( CLT <= split < CLE
      * */
 
-    /* find split points in O->Call*/
-    _find_split_points(o);
+    /* find split points in O->GL_C*/
+#pragma omp barrier
+#pragma omp master
+    {
+        _solve_for_layout(NTask, o->C, o->GL_CLT, o->GL_CLE, o->GL_C);
+    }
+#pragma omp barrier
 
     double t3 = omp_get_wtime();
     printf("find split took %g\n", t3 - t2);
@@ -393,9 +351,9 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     char * recv = buffer;
     for(i = 0; i < NTask; i ++) {
         char * sendbuf = (char*) base + d->size * (i * nmemb / NTask);
-        size_t size = (o->Call[i * NTask1 + ThisTask + 1]
-                - o->Call[i * NTask1 + ThisTask]) * d->size;
-        char * ptr = &sendbuf[d->size * o->Call[i * NTask1 + ThisTask]];
+        size_t size = (o->GL_C[i * NTask1 + ThisTask + 1]
+                - o->GL_C[i * NTask1 + ThisTask]) * d->size;
+        char * ptr = &sendbuf[d->size * o->GL_C[i * NTask1 + ThisTask]];
 
         memcpy(recv, ptr, size);
         recv += size;

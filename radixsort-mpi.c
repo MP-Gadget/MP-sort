@@ -72,7 +72,8 @@ static void _solve_for_layout_mpi (
         ptrdiff_t * myT_CLE, 
         ptrdiff_t * myT_C,
         MPI_Comm comm);
-int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
+
+void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, 
@@ -110,6 +111,10 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     ptrdiff_t myT_C[2 * o.NTask];
     ptrdiff_t myC[o.NTask + 1];
 
+    int iter = 0;
+    int done = 0;
+    char * buffer;
+    int i;
 
 
     MPI_Allreduce(&mynmemb, &nmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
@@ -124,9 +129,6 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     memset(P, 0, d.rsize * (o.NTask -1));
 
     piter_init(&pi, Pmin, Pmax, o.NTask - 1, &d);
-
-    int iter = 0;
-    int done = 0;
 
     while(!done) {
         iter ++;
@@ -202,9 +204,8 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     MPI_Alltoall(myT_C + o.NTask, 1, MPI_TYPE_PTRDIFF, 
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    char * buffer = malloc(d.size * mynmemb);
+    buffer = malloc(d.size * mynmemb);
 
-    int i;
     for(i = 0; i < o.NTask; i ++) {
         SendCount[i] = myC[i + 1] - myC[i];
     }

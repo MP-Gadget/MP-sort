@@ -128,22 +128,6 @@ static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d)
 
 }
 
-static void _count_once_mine(char * P, void * mybase, size_t mynmemb, 
-        ptrdiff_t * myCLT, ptrdiff_t * myCLE,
-        struct crstruct * d, struct crompstruct * o) {
-    int NTask = omp_get_num_threads();
-    int it;
-
-    myCLT[0] = 0;
-    myCLE[0] = 0;
-    for(it = 0; it < NTask - 1; it ++) {
-        myCLT[it + 1] = _bsearch_last_lt(P + it * d->rsize, mybase, mynmemb, d) + 1;
-        myCLE[it + 1] = _bsearch_last_le(P + it * d->rsize, mybase, mynmemb, d) + 1;
-    }
-    myCLT[it + 1] = mynmemb;
-    myCLE[it + 1] = mynmemb;
-}
-
 static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb, 
         struct crstruct * d, 
         struct crompstruct * o) {
@@ -205,7 +189,7 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
 #pragma omp barrier
         iter ++;
 
-        _count_once_mine(o->P, mybase, mynmemb, myCLT, myCLE, d, o);
+        _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
 
         /* reduce the counts */
 
@@ -362,7 +346,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     ptrdiff_t myCLT[NTask + 1]; /* counts of less than P */
     ptrdiff_t myCLE[NTask + 1]; /* counts of less than or equal to P */
 
-    _count_once_mine(o->P, mybase, mynmemb, myCLT, myCLE, d, o);
+    _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
 
     /* allgather */
     int NTask1 = NTask + 1;

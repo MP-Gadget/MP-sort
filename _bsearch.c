@@ -82,6 +82,33 @@ static ptrdiff_t _bsearch_last_le(void * P,
     } 
     return left;
 }
+
+/* 
+ * do a histogram of mybase, based on bins defined in P.
+ * P is an array of radix of length Plength,
+ * myCLT, myCLE are of length Plength + 2
+ *
+ * myCLT[i + 1] is the count of items less than P[i]
+ * myCLE[i + 1] is the count of items less than or equal to P[i]
+ *
+ * myCLT[0] is always 0
+ * myCLT[Plength + 1] is always mynmemb
+ *
+ * */
+static void _histogram(char * P, int Plength, void * mybase, size_t mynmemb, 
+        ptrdiff_t * myCLT, ptrdiff_t * myCLE,
+        struct crstruct * d) {
+    int it;
+
+    myCLT[0] = 0;
+    myCLE[0] = 0;
+    for(it = 0; it < Plength; it ++) {
+        myCLT[it + 1] = _bsearch_last_lt(P + it * d->rsize, mybase, mynmemb, d) + 1;
+        myCLE[it + 1] = _bsearch_last_le(P + it * d->rsize, mybase, mynmemb, d) + 1;
+    }
+    myCLT[it + 1] = mynmemb;
+    myCLE[it + 1] = mynmemb;
+}
 #if 0
 static ptrdiff_t _radix_count_lt_stupid(void * P, 
         void * base, size_t nmemb, 

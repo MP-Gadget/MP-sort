@@ -140,7 +140,7 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
 #pragma omp barrier
 #pragma omp single
         {
-            piter_next(&o->pi, o->P);
+            piter_bisect(&o->pi, o->P);
             for(i = 0; i < NTask + 1; i ++) {
                 o->CLT[i] = 0;
                 o->CLE[i] = 0;
@@ -165,30 +165,9 @@ static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb,
 #pragma omp barrier
 #pragma omp single
         {
-            for(i = 0; i < NTask - 1; i ++) {
-                if( o->CLT[i + 1] < o->C[i + 1] && o->C[i + 1] <= o->CLE[i + 1]) {
-                    o->pi.stable[i] = 1;
-                    continue;
-                } else {
-                    if(o->CLT[i + 1] >= o->C[i + 1]) {
-                        /* P[i] is too big */
-                        memcpy(&o->pi.Pright[i * d->rsize], &o->P[i * d->rsize], d->rsize);
-                    } else {
-                        /* P[i] is too small */
-                        memcpy(&o->pi.Pleft[i * d->rsize], &o->P[i * d->rsize], d->rsize);
-                    }
-                }
-            }
-
-#if 0
-            for(i = 0; i < NTask + 1; i ++) {
-                printf("counts %d %d LT %ld C %ld LE %ld\n", iter, i, o->CLT[i], o->C[i], o->CLE[i]);
-            }
-#endif
+            piter_accept(&o->pi, o->P, o->C, o->CLT, o->CLE);
         }
-
-#pragma omp barrier
-        done = piter_done(&o->pi);
+        done = piter_all_done(&o->pi);
     }
 
 #pragma omp barrier

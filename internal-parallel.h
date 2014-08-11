@@ -225,7 +225,15 @@ static void piter_destroy(struct piter * pi) {
     free(pi->Pleft);
     free(pi->Pright);
 }
-static void piter_next(struct piter * pi, char * P) {
+
+/* 
+ * this will bisect the left / right in piter.
+ * note that piter goes [left, right], thus we need 
+ * to maintain an internal status to make sure we go over 
+ * the additional 'right]'. (usual bisect range is 
+ * '[left, right)' )
+ * */
+static void piter_bisect(struct piter * pi, char * P) {
     struct crstruct * d = pi->d;
     int i;
     for(i = 0; i < pi->Plength; i ++) {
@@ -255,7 +263,7 @@ static void piter_next(struct piter * pi, char * P) {
 #endif
     }
 }
-static int piter_done(struct piter * pi) {
+static int piter_all_done(struct piter * pi) {
     int i;
     int done = 1;
     for(i = 0; i < pi->Plength; i ++) {
@@ -265,6 +273,36 @@ static int piter_done(struct piter * pi) {
     return done;
 }
 
+/* 
+ * bisection acceptance test.
+ *
+ * test if the counts satisfies CLT < C <= CLE.
+ * move Pleft / Pright accordingly.
+ * */
+static void piter_accept(struct piter * pi, char * P, 
+        ptrdiff_t * C, ptrdiff_t * CLT, ptrdiff_t * CLE) {
+    struct crstruct * d = pi->d;
+    int i;
+    for(i = 0; i < pi->Plength; i ++) {
+        if( CLT[i + 1] < C[i + 1] && C[i + 1] <= CLE[i + 1]) {
+            pi->stable[i] = 1;
+            continue;
+        } else {
+            if(CLT[i + 1] >= C[i + 1]) {
+                /* P[i] is too big */
+                memcpy(&pi->Pright[i * d->rsize], &P[i * d->rsize], d->rsize);
+            } else {
+                /* P[i] is too small */
+                memcpy(&pi->Pleft[i * d->rsize], &P[i * d->rsize], d->rsize);
+            }
+        }
+    }
+#if 0
+    for(i = 0; i < NTask + 1; i ++) {
+        printf("counts %d %d LT %ld C %ld LE %ld\n", iter, i, o->CLT[i], o->C[i], o->CLE[i]);
+    }
+#endif
+}
 #if 0
 static ptrdiff_t _radix_count_lt_stupid(void * P, 
         void * base, size_t nmemb, 

@@ -65,6 +65,13 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         struct crstruct * d,
         struct crmpistruct * o);
 
+static void _solve_for_layout_mpi (
+        int NTask, 
+        ptrdiff_t * C,
+        ptrdiff_t * myT_CLT, 
+        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_C,
+        MPI_Comm comm);
 int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
@@ -98,10 +105,10 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     int RecvCount[o.NTask];
     int RecvDispl[o.NTask];
 
-    int NTask1 = o.NTask + 1;
-    ptrdiff_t GL_CLT[o.NTask * NTask1];
-    ptrdiff_t GL_CLE[o.NTask * NTask1];
-    ptrdiff_t GL_C[o.NTask * NTask1];
+    ptrdiff_t myT_CLT[2 * o.NTask];
+    ptrdiff_t myT_CLE[2 * o.NTask];
+    ptrdiff_t myT_C[2 * o.NTask];
+    ptrdiff_t myC[o.NTask + 1];
 
 
 
@@ -177,18 +184,29 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     _histogram(P, o.NTask - 1, mybase, mynmemb, myCLT, myCLE, &d);
 
-    MPI_Allgather(myCLT, o.NTask + 1, MPI_TYPE_PTRDIFF, 
-            GL_CLT, o.NTask + 1, MPI_TYPE_PTRDIFF, o.comm);
-    MPI_Allgather(myCLE, o.NTask + 1, MPI_TYPE_PTRDIFF, 
-            GL_CLE, o.NTask + 1, MPI_TYPE_PTRDIFF, o.comm);
+    /* transpose the matrix, could have been done with a new datatype */
+    MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF, 
+            myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
+    MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF, 
+            myT_CLT + o.NTask, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    _solve_for_layout(o.NTask, C, GL_CLT, GL_CLE, GL_C);
+    MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF, 
+            myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm);
+    MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF, 
+            myT_CLE + o.NTask, 1, MPI_TYPE_PTRDIFF, o.comm);
+
+    _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
+
+    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF, 
+            myC, 1, MPI_TYPE_PTRDIFF, o.comm);
+    MPI_Alltoall(myT_C + o.NTask, 1, MPI_TYPE_PTRDIFF, 
+            myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
 
     char * buffer = malloc(d.size * mynmemb);
 
     int i;
     for(i = 0; i < o.NTask; i ++) {
-        SendCount[i] = GL_C[o.ThisTask * NTask1 + i + 1] - GL_C[o.ThisTask * NTask1 + i];
+        SendCount[i] = myC[i + 1] - myC[i];
     }
 
     MPI_Alltoall(SendCount, 1, MPI_INT,
@@ -199,7 +217,7 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     for(i = 1; i < o.NTask; i ++) {
         SendDispl[i] = SendDispl[i - 1] + SendCount[i - 1];
         RecvDispl[i] = RecvDispl[i - 1] + RecvCount[i - 1];
-        if(SendDispl[i] != GL_C[o.ThisTask * NTask1 + i]) {
+        if(SendDispl[i] != myC[i]) {
             fprintf(stderr, "SendDispl error\n");
             abort();
         }
@@ -237,7 +255,7 @@ int radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
             printf("MyC (%d): ", o.ThisTask);
             for(i = 0; i < o.NTask + 1; i ++) {
-                printf("%d ", GL_C[o.ThisTask * NTask1 + i]);
+                printf("%d ", myC[i]);
             }
             printf("\n");
             printf("MyCLT (%d): ", o.ThisTask);
@@ -327,4 +345,96 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
             memcpy(Pmin, eachPmin + i * d->rsize, d->rsize);
         }
     }
+}
+
+static void _solve_for_layout_mpi (
+        int NTask, 
+        ptrdiff_t * C,
+        ptrdiff_t * myT_CLT, 
+        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_C,
+        MPI_Comm comm) {
+    int NTask1 = NTask + 1;
+    int i, j;
+    int ThisTask;
+    MPI_Comm_rank(comm, &ThisTask);
+
+    /* receive the left slab of myT_C from previous rank */
+    if(ThisTask > 0) {
+        MPI_Recv(myT_C, NTask, MPI_TYPE_PTRDIFF,
+                ThisTask - 1, 0xdead, comm, MPI_STATUS_IGNORE);
+    } else {
+        for(i = 0; i < NTask; i ++) {
+            myT_C[i] = myT_CLT[i];
+        }
+        
+    }
+
+    /* first assume we just send according to myT_CLT */
+    for(i = 0; i < NTask; i ++) {
+        myT_C[NTask + i] = myT_CLT[NTask + i];
+    }
+
+    /* Solve for each receiving task i 
+     *
+     * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
+     *
+     * and we have GL_C[..., 0] == 0 by definition.
+     *
+     * this cannot be done in parallel wrt i because of the dependency. 
+     *
+     *  a solution is guaranteed because GL_CLE and GL_CLT
+     *  brackes the total counts C (we've found it with the
+     *  iterative counting.
+     *
+     * */
+
+    ptrdiff_t sure = 0;
+
+    /* how many will I surely receive? */
+    for(j = 0; j < NTask; j ++) {
+        ptrdiff_t recvcount = myT_C[NTask + j] - myT_C[j];
+        sure += recvcount;
+    }
+    /* let's see if we have enough */
+    ptrdiff_t deficit = C[ThisTask + 1] - C[ThisTask] - sure;
+
+    for(j = 0; j < NTask; j ++) {
+        /* deficit solved */
+        if(deficit == 0) break;
+        if(deficit < 0) {
+            fprintf(stderr, "serious bug: more items than there should be: deficit=%ld\n", deficit);
+            abort();
+        }
+        /* how much task j can supply ? */
+        ptrdiff_t supply = myT_CLE[NTask + j] - myT_C[NTask + j];
+        if(supply < 0) {
+            fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
+            abort();
+        }
+        if(supply <= deficit) {
+            myT_C[NTask + j] += supply;
+            deficit -= supply;
+        } else {
+            myT_C[NTask + j] += deficit;
+            deficit = 0;
+        }
+    }
+
+    if(ThisTask < NTask - 1) {
+        MPI_Send(myT_C + NTask, NTask, MPI_TYPE_PTRDIFF,
+                ThisTask + 1, 0xdead, comm);
+    }
+#if 0
+    for(i = 0; i < NTask; i ++) {
+        for(j = 0; j < NTask + 1; j ++) {
+            printf("%d %d %d, ", 
+                    GL_CLT[i * NTask1 + j], 
+                    GL_C[i * NTask1 + j], 
+                    GL_CLE[i * NTask1 + j]);
+        }
+        printf("\n");
+    }
+#endif
+
 }

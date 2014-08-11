@@ -21,10 +21,14 @@ static int compar_int(const void * p1, const void * p2) {
     return (*i1 > *i2) - (*i1 < *i2);
 }
 
-int main() {
+int main(int argc, char * argv[]) {
     int i;
     srand(9999);
-#define NUMITEMS 10000000
+    if(argc != 2) {
+        printf("./main [number of items]\n");
+        return 1;
+    }
+    int NUMITEMS = atoi(argv[1]);
     int * data1 = malloc(sizeof(int) * NUMITEMS);
     int * data2 = malloc(sizeof(int) * NUMITEMS);
     int * data3 = malloc(sizeof(int) * NUMITEMS);

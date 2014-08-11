@@ -66,17 +66,6 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
 
 #pragma omp parallel
     {
-        int NTask = omp_get_num_threads();
-#pragma omp master 
-        {
-            int i;
-            o.C[0] = 0;
-            for(i = 0; i < NTask; i ++) {
-            /* how many items are desired per thread */
-                o.C[i + 1] = nmemb * (i + 1) / NTask;
-            }
-        }
-#pragma omp barrier
         radix_sort_omp_single (base, nmemb, &d, &o);
     }
 
@@ -117,65 +106,24 @@ static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d)
     free(o->P);
 }
 
-static void radix_sort_omp_single_iteration(char * mybase, size_t mynmemb, 
-        struct crstruct * d, 
-        struct crompstruct * o) {
-    int NTask = omp_get_num_threads();
+static void _reduce_sum(ptrdiff_t * send, ptrdiff_t * recv, size_t count) {
+    ptrdiff_t i;
+#pragma omp single 
+    for(i = 0; i < count; i ++) {
+        recv[i] = 0;
+    }
+#pragma omp critical
+    for(i = 0; i < count; i ++) {
+        recv[i] += send[i];
+    }
+#pragma omp barrier
+}
+static void _gather(void * sendbuf, int sendcount1, void * recvbuf, size_t itemsize) {
     int ThisTask = omp_get_thread_num();
-
-    ptrdiff_t myCLT[NTask + 1]; /* counts of less than P */
-    ptrdiff_t myCLE[NTask + 1]; /* counts of less than or equal to P */
-
-#pragma omp single
-    {
-        piter_init(&o->pi, o->Pmin, o->Pmax, NTask - 1, d);
-    }
-
-    int iter = 0;
-    int i;
-
-    int done = 0;
-
-    while(!done) {
+    ptrdiff_t i;
+    memcpy((char*) recvbuf + ThisTask * sendcount1 * itemsize, 
+            sendbuf, sendcount1 * itemsize);
 #pragma omp barrier
-#pragma omp single
-        {
-            piter_bisect(&o->pi, o->P);
-            for(i = 0; i < NTask + 1; i ++) {
-                o->CLT[i] = 0;
-                o->CLE[i] = 0;
-            }
-        }
-
-        iter ++;
-
-        _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
-
-        /* reduce the counts */
-
-#pragma omp barrier
-
-        for(i = 0; i < NTask + 1; i ++) {
-#pragma omp atomic
-            o->CLT[i] += myCLT[i];
-#pragma omp atomic
-            o->CLE[i] += myCLE[i];
-        }
-
-#pragma omp barrier
-#pragma omp single
-        {
-            piter_accept(&o->pi, o->P, o->C, o->CLT, o->CLE);
-        }
-        done = piter_all_done(&o->pi);
-    }
-
-#pragma omp barrier
-#pragma omp single
-    {
-        piter_destroy(&o->pi);
-    }
-
 }
 
 static void radix_sort_omp_single(void * base, size_t nmemb, 
@@ -183,14 +131,30 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     int NTask = omp_get_num_threads();
     int ThisTask = omp_get_thread_num();
 
+    ptrdiff_t myCLT[NTask + 1]; /* counts of less than P */
+    ptrdiff_t myCLE[NTask + 1]; /* counts of less than or equal to P */
+
+    int i;
+
+#pragma omp single
+    {
+        o->C[0] = 0;
+        for(i = 0; i < NTask; i ++) {
+        /* how many items are desired per thread */
+            o->C[i + 1] = nmemb * (i + 1) / NTask;
+        }
+    }
+
     double t0 = omp_get_wtime();
 
-    /* distribute the array and sort the local array */
+    /* distribute the array evenly */
     char * mybase = (char*) base + nmemb * ThisTask / NTask * d->size;
     size_t mynmemb = nmemb * (ThisTask + 1)/ NTask - nmemb * (ThisTask) / NTask;
 
 
+    /* and sort the local array */
     radix_sort(mybase, mynmemb, d->size, d->radix, d->rsize, d->arg);
+
 
     /* find the max radix and min radix of all */
     if(mynmemb > 0) {
@@ -213,15 +177,39 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     double t1 = omp_get_wtime();
     printf("Initial sort took %g\n", t1 - t0);
 
-    
     /* now do the radix counting iterations */ 
 
-    radix_sort_omp_single_iteration(mybase, mynmemb, d, o);
+#pragma omp single
+    piter_init(&o->pi, o->Pmin, o->Pmax, NTask - 1, d);
+
+    int iter = 0;
+
+    int done = 0;
+
+    while(!done) {
+        iter ++;
+#pragma omp barrier
+#pragma omp single
+        piter_bisect(&o->pi, o->P);
+
+        _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
+
+        _reduce_sum(myCLT, o->CLT, NTask + 1);
+        _reduce_sum(myCLE, o->CLE, NTask + 1);
+
+#pragma omp single
+        piter_accept(&o->pi, o->P, o->C, o->CLT, o->CLE);
+
+        done = piter_all_done(&o->pi);
+    }
+#pragma omp barrier
+
+#pragma omp single
+    piter_destroy(&o->pi);
 
     double t2 = omp_get_wtime();
     printf("counting took %g\n", t2 - t1);
 
-#pragma omp barrier
 #if 0
 #pragma omp single
     {
@@ -232,18 +220,12 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
         }
     }
 #endif
-    ptrdiff_t myCLT[NTask + 1]; /* counts of less than P */
-    ptrdiff_t myCLE[NTask + 1]; /* counts of less than or equal to P */
 
     _histogram(o->P, NTask - 1, mybase, mynmemb, myCLT, myCLE, d);
 
-    /* allgather */
-    int NTask1 = NTask + 1;
-    int i;
-    for(i = 0; i < NTask + 1; i ++) {
-        o->GL_CLT[ThisTask * NTask1 + i] = myCLT[i];
-        o->GL_CLE[ThisTask * NTask1 + i] = myCLE[i];
-    }
+    /* gather to all (used only by single */
+    _gather(myCLT, NTask + 1, o->GL_CLT, sizeof(ptrdiff_t));
+    _gather(myCLE, NTask + 1, o->GL_CLE, sizeof(ptrdiff_t));
 
     /* indexing is
      * GL_C[Sender * NTask1 + Recver] */
@@ -254,11 +236,8 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
      * */
 
     /* find split points in O->GL_C*/
-#pragma omp barrier
 #pragma omp single
-    {
-        _solve_for_layout(NTask, o->C, o->GL_CLT, o->GL_CLE, o->GL_C);
-    }
+    _solve_for_layout(NTask, o->C, o->GL_CLT, o->GL_CLE, o->GL_C);
 
     double t3 = omp_get_wtime();
     printf("find split took %g\n", t3 - t2);
@@ -266,6 +245,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     /* exchange data */
     /* */
     char * buffer = malloc(d->size * mynmemb);
+    int NTask1 = NTask + 1;
 
 #if 0
 #pragma omp critical 
@@ -280,6 +260,9 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     }
 #pragma omp barrier
 #endif
+
+    /* can't do with an alltoall because it is difficult to sync
+     * the sendbuf pointers with omp */
     char * recv = buffer;
     for(i = 0; i < NTask; i ++) {
         char * sendbuf = (char*) base + d->size * (i * nmemb / NTask);

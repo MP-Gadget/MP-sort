@@ -319,7 +319,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     int i;
 
     if(mynmemb > 0) {
-        d->radix(mybase + (mynmemb - 1) * d->size, myPmax, d->arg);
+        d->radix((char*) mybase + (mynmemb - 1) * d->size, myPmax, d->arg);
         d->radix(mybase, myPmin, d->arg);
     } else {
         memset(myPmin, 0, d->rsize);

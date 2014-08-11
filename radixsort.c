@@ -7,13 +7,21 @@
 
 #include "internal.h"
 
+/*****
+ * msort.c is stripped from glibc git. 
+ * qsort_r is not available till 2.8 but
+ * most systems has older glibc 
+ * ****/
+#include "stdlib/msort.c"
+
+
 /****
  * sort by radix;
  * internally this uses qsort_r of glibc.
  *
  **** */
 
-int radix_sort(void * base, size_t nmemb, size_t size, 
+void radix_sort(void * base, size_t nmemb, size_t size, 
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg) {

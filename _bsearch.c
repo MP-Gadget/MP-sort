@@ -82,7 +82,7 @@ static ptrdiff_t _bsearch_last_le(void * P,
     } 
     return left;
 }
-
+#if 0
 static ptrdiff_t _radix_count_lt_stupid(void * P, 
         void * base, size_t nmemb, 
         struct crstruct * d) {
@@ -97,4 +97,4 @@ static ptrdiff_t _radix_count_lt_stupid(void * P,
     }
     return count;
 }
-
+#endif

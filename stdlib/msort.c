@@ -190,10 +190,10 @@ qsort_r (void *b, size_t n, size_t s, __compar_d_fn_t cmp, void *arg)
     {
       /* We should avoid allocating too much memory since this might
 	 have to be backed up by swap space.  */
+#if 0
       static long int phys_pages = (~0ul >> 1) / 4 / 4096;
       static int pagesize = 4096;
 
-#if 0
       if (pagesize == 0)
 	{
 	  phys_pages = __sysconf (_SC_PHYS_PAGES);

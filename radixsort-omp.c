@@ -4,10 +4,12 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <omp.h>
 
 #include "internal.h"
 
-#include "radixsort_bsearch.c"
+#include "_bsearch.c"
+#include "radixsort.h"
 
 struct crompstruct {
     char * P0;
@@ -28,19 +30,25 @@ struct crompstruct {
 
 
 /* OPENMP version of radix sort; 
- * this is truely parallel; but it is usually slower than
- * simple radix sort; 
- * more of a prototype of the MPI radix sort
+ * this is truely parallel; 
+ * but it is usually slower than
+ * simple radix sort if the number of processor is small.
  *
+ * some benchmarks on Coma at CMU shows best performance is at 16
+ * CPUs; still faster than serial version with 8 CPUs.
+ * comparable with qsort (non-radix) at 8 CPUs.
+ * 
+ * the coding is more of a prototype of the MPI radix sort;
  * it is thus very poorly written in the standards of an OPENMP program; 
  * */
 
 static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d);
+static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d);
 
 static void radix_sort_omp_single(void * base, size_t nmemb, 
         struct crstruct * d, struct crompstruct * o);
 
-int radix_sort_omp(void * base, size_t nmemb, size_t size,
+void radix_sort_omp(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg) {
@@ -77,6 +85,7 @@ int radix_sort_omp(void * base, size_t nmemb, size_t size,
         radix_sort_omp_single (base, nmemb, &d, &o);
     }
 
+    _cleanup_radix_sort_omp(&o, &d);
 }
 
 static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
@@ -103,6 +112,20 @@ static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
 
     o->Pmin = o->P0;
     memset(o->Pmin, -1, d->rsize);
+}
+static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
+    free(o->CLE);
+    free(o->CLT);
+    free(o->C);
+    free(o->Call);
+    free(o->CLEall);
+    free(o->CLTall);
+    free(o->P0);
+    free(o->Pleft);
+    free(o->Pright);
+    free(o->stable);
+    free(o->narrow);
+
 }
 
 static void _count_once_mine(char * P, void * mybase, size_t mynmemb, 
@@ -294,7 +317,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     size_t mynmemb = nmemb * (ThisTask + 1)/ NTask - nmemb * (ThisTask) / NTask;
 
 
-    qsort_r(mybase, mynmemb, d->size, _compute_and_compar_radix, d);
+    radix_sort(mybase, mynmemb, d->size, d->radix, d->rsize, d->arg);
 
     /* find the max radix and min radix of all */
     if(mynmemb > 0) {
@@ -415,7 +438,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     double t4 = omp_get_wtime();
     printf("exchange took %g\n", t4 - t3);
 
-    qsort_r(mybase, mynmemb, d->size, _compute_and_compar_radix, d);
+    radix_sort(mybase, mynmemb, d->size, d->radix, d->rsize, d->arg);
 
     double t5 = omp_get_wtime();
     printf("final sort %g\n", t5 - t4);

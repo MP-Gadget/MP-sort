@@ -6,13 +6,6 @@
 #include <string.h>
 
 
-/*****
- * msort.c is stripped from glibc git. 
- * qsort_r is not available till 2.8 but
- * most systems has older glibc 
- * ****/
-#include "stdlib/msort.c"
-
 struct crstruct {
     size_t size;
     size_t rsize;

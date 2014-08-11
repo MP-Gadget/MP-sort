@@ -128,16 +128,16 @@ void _setup_radix_sort(
     d->size = size;
     switch(rsize) {
         case 2:
-            d->compar = (void*) _compar_radix_uint16_t;
-            d->bisect = (void*) _bisect_radix_uint16_t;
+            d->compar = (_compar_fn_t) _compar_radix_uint16_t;
+            d->bisect = (_bisect_fn_t) _bisect_radix_uint16_t;
             break;
         case 4:
-            d->compar = (void*) _compar_radix_uint32_t;
-            d->bisect = (void*) _bisect_radix_uint32_t;
+            d->compar = (_compar_fn_t) _compar_radix_uint32_t;
+            d->bisect = (_bisect_fn_t) _bisect_radix_uint32_t;
             break;
         case 8:
-            d->compar = (void*) _compar_radix_uint64_t;
-            d->bisect = (void*) _bisect_radix_uint64_t;
+            d->compar = (_compar_fn_t) _compar_radix_uint64_t;
+            d->bisect = (_bisect_fn_t) _bisect_radix_uint64_t;
             break;
         default:
             if(ideadbeef[0] != 0xdeadbeef) {

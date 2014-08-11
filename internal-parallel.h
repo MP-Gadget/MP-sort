@@ -121,7 +121,8 @@ static void _histogram(char * P, int Plength, void * mybase, size_t mynmemb,
  *
  * GL_C[t, i]: the offset of sending to task i in task t.
  *
- *
+ * this routine requires GL_ to scale with NTask * NTask;
+ * won't work with 1,000 + ranks.
  * */
 static void _solve_for_layout (
         int NTask, 
@@ -172,6 +173,10 @@ static void _solve_for_layout (
             }
             /* how much task j can supply ? */
             ptrdiff_t supply = GL_CLE[j * NTask1 + i + 1] - GL_C[j * NTask1 + i + 1];
+            if(supply < 0) {
+                fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
+                abort();
+            }
             if(supply <= deficit) {
                 GL_C[j * NTask1 + i + 1] += supply;
                 deficit -= supply;
@@ -237,6 +242,7 @@ static void piter_bisect(struct piter * pi, char * P) {
     struct crstruct * d = pi->d;
     int i;
     for(i = 0; i < pi->Plength; i ++) {
+        if(pi->stable[i]) continue;
         if(pi->narrow[i]) {
             /* The last iteration, test Pright directly */
             memcpy(&P[i * d->rsize],
@@ -257,18 +263,27 @@ static void piter_bisect(struct piter * pi, char * P) {
             }
         }
 #if 0
-        printf("bisect %d %d %u %u %u\n", iter, i, *(int*) &o->P[i * d->rsize], 
-                *(int*) &o->Pleft[i * d->rsize], 
-                *(int*) &o->Pright[i * d->rsize]);
+        printf("bisect %d %u %u %u\n", i, *(int*) &P[i * d->rsize], 
+                *(int*) &pi->Pleft[i * d->rsize], 
+                *(int*) &pi->Pright[i * d->rsize]);
 #endif
     }
 }
 static int piter_all_done(struct piter * pi) {
     int i;
     int done = 1;
+#if 0
+#pragma omp single
     for(i = 0; i < pi->Plength; i ++) {
-        if(!pi->stable[i]) done = 0;
-        break;
+        printf("P %d stable %d narrow %d\n", 
+            i, pi->stable[i], pi->narrow[i]);
+    }
+#endif
+    for(i = 0; i < pi->Plength; i ++) {
+        if(!pi->stable[i]) {
+            done = 0;
+            break;
+        }
     }
     return done;
 }
@@ -283,6 +298,12 @@ static void piter_accept(struct piter * pi, char * P,
         ptrdiff_t * C, ptrdiff_t * CLT, ptrdiff_t * CLE) {
     struct crstruct * d = pi->d;
     int i;
+#if 0
+    for(i = 0; i < pi->Plength + 1; i ++) {
+        printf("counts %d LT %ld C %ld LE %ld\n",
+                i, CLT[i], C[i], CLE[i]);
+    }
+#endif
     for(i = 0; i < pi->Plength; i ++) {
         if( CLT[i + 1] < C[i + 1] && C[i + 1] <= CLE[i + 1]) {
             pi->stable[i] = 1;
@@ -297,25 +318,4 @@ static void piter_accept(struct piter * pi, char * P,
             }
         }
     }
-#if 0
-    for(i = 0; i < NTask + 1; i ++) {
-        printf("counts %d %d LT %ld C %ld LE %ld\n", iter, i, o->CLT[i], o->C[i], o->CLE[i]);
-    }
-#endif
 }
-#if 0
-static ptrdiff_t _radix_count_lt_stupid(void * P, 
-        void * base, size_t nmemb, 
-        struct crstruct * d) {
-    char tmpradix[d->rsize];
-    ptrdiff_t i = 0;
-    ptrdiff_t count = 0;
-    for(i = 0; i < nmemb; i ++) {
-        d->radix((char*) base + i * d->size, tmpradix, d->arg);
-        if(d->compar(P, tmpradix, d->rsize) > 0) {
-            count ++;
-        } 
-    }
-    return count;
-}
-#endif

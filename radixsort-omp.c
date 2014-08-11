@@ -48,6 +48,7 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg) {
+    if(nmemb == 0) return;
 
     struct crstruct d;
     struct crompstruct o;
@@ -158,8 +159,8 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
 
     /* find the max radix and min radix of all */
     if(mynmemb > 0) {
-        char * myPmax[d->rsize];
-        char * myPmin[d->rsize];
+        char myPmax[d->rsize];
+        char myPmin[d->rsize];
         d->radix(mybase + (mynmemb - 1) * d->size, myPmax, d->arg);
         d->radix(mybase, myPmin, d->arg);
 #pragma omp critical

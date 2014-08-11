@@ -10,3 +10,9 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
         void * arg);
 
 #endif
+#ifdef MPI_COMM_WORLD
+void radix_sort_mpi(void * base, size_t nmemb, size_t size,
+        void (*radix)(const void * ptr, void * radix, void * arg), 
+        size_t rsize, 
+        void * arg, MPI_Comm comm);
+#endif

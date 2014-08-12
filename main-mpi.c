@@ -109,7 +109,7 @@ int main(int argc, char * argv[]) {
         }
         if(ThisTask > 1) {
             if(mysize > 0) {
-                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
+//                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
                 if(prev > mydata[0]) {
                     fprintf(stderr, "global ordering fail\n");
                     abort();

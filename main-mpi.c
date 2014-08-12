@@ -38,9 +38,7 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
-    size_t NUMITEMS = atoll(argv[1]);
-
-    size_t mysize = (ThisTask + 1 ) * NUMITEMS / NTask - ThisTask * NUMITEMS / NTask;
+    size_t mysize = atoi(argv[1]);
     int * mydata = malloc(mysize * sizeof(int));
 
     int64_t mysum = 0;

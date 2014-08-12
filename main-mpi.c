@@ -23,8 +23,6 @@ static int compar_int(const void * p1, const void * p2) {
 
 int main(int argc, char * argv[]) {
     int i;
-    srand(9999);
-
     MPI_Init(&argc, &argv);
 
     int ThisTask;
@@ -33,51 +31,76 @@ int main(int argc, char * argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
+    srand(9999 * ThisTask);
+
     if(argc != 2) {
         printf("./main [number of items]\n");
         return 1;
     }
 
     size_t NUMITEMS = atoi(argv[1]);
-    int * data1 = malloc(sizeof(int) * NUMITEMS);
-    int * data2 = malloc(sizeof(int) * NUMITEMS);
 
-    int * mydata1 = data1 + ThisTask * NUMITEMS / NTask;
-    int * mydata2 = data2 + ThisTask * NUMITEMS / NTask;
-    size_t mynumitems = (ThisTask + 1 ) * NUMITEMS / NTask - ThisTask * NUMITEMS / NTask;
+    size_t mysize = (ThisTask + 1 ) * NUMITEMS / NTask - ThisTask * NUMITEMS / NTask;
+    int * mydata = malloc(mysize * sizeof(int));
 
-    for(i = 0; i < NUMITEMS; i ++) {
-        data1[i] = random() % 10000;
-        data2[i] = data1[i];
+    int64_t mysum = 0;
+    int64_t truesum = 0, realsum = 0;
+
+    for(i = 0; i < mysize; i ++) {
+        mydata[i] = random() % 10000;
+        mysum += mydata[i];
     }
 
-    {
-        double t0 = wtime();
-        radix_sort_mpi(mydata1, mynumitems, sizeof(int),
-                radix_int, sizeof(int),
-                NULL, MPI_COMM_WORLD);
-        MPI_Barrier(MPI_COMM_WORLD);
-        double t1 = wtime();
-        if(ThisTask == 0)  {
-            printf("time spent omp: %g\n", t1 - t0);
-            radix_sort_mpi_report_last_run();
+    MPI_Allreduce(&mysum, &truesum, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    radix_sort_mpi(mydata, mysize, sizeof(int),
+            radix_int, sizeof(int),
+            NULL, MPI_COMM_WORLD);
+
+    if(ThisTask == 0)  {
+        radix_sort_mpi_report_last_run();
+    }
+
+    mysum = 0;
+    for(i = 0; i < mysize; i ++) {
+        mysum += mydata[i];
+    }
+
+    MPI_Allreduce(&mysum, &realsum, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    if(realsum != truesum) {
+        fprintf(stderr, "checksum fail\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    for(i = 1; i < mysize; i ++) {
+        if(mydata[i] < mydata[i - 1]) {
+            fprintf(stderr, "local ordering fail\n");
         }
     }
-
-    {
-        double t0 = wtime();
-        qsort(data2, NUMITEMS, sizeof(int), compar_int);
-        double t1 = wtime();
+    if(NTask > 1) {
+        int prev;
         if(ThisTask == 0) {
-            printf("time spent qsort: %g\n", t1 - t0);
+            MPI_Send(&mydata[mysize - 1], 1, MPI_INT, 
+                    ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
+        } else
+        if(ThisTask == NTask - 1) {
+            MPI_Recv(&prev, 1, MPI_INT,
+                    ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        } else {
+            MPI_Sendrecv(
+                    &mydata[mysize - 1], 1, MPI_INT, 
+                    ThisTask + 1, 0xbeef, 
+                    &prev, 1, MPI_INT,
+                    ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+        if(ThisTask > 1) {
+            if(prev > mydata[0]) {
+                fprintf(stderr, "global ordering fail\n");
+                abort();
+            }
         }
     }
-
-    for(i = 0; i < mynumitems; i ++) {
-        if(mydata1[i] != mydata2[i]) abort();
-    }
-    free(data1);
-    free(data2);
+    free(mydata);
     MPI_Finalize();
     return 0;
 }

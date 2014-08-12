@@ -74,7 +74,7 @@ static void _solve_for_layout_mpi (
         MPI_Comm comm);
 static struct TIMER {
     double time;
-    char name[10];
+    char name[20];
 } _TIMERS[20];
 
 void radix_sort_mpi_report_last_run() {
@@ -322,10 +322,12 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     memcpy(mybase, buffer, mynmemb * d.size);
     free(buffer);
 
+    MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Exchange"), tmr++);
 
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
+    MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);

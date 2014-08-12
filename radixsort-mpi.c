@@ -142,6 +142,7 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     /* and sort the local array */
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
+    MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
 
     _find_Pmax_Pmin_C(mybase, mynmemb, Pmax, Pmin, C, &d, &o);

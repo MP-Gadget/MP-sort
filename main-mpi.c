@@ -60,6 +60,7 @@ int main(int argc, char * argv[]) {
         double t1 = wtime();
         if(ThisTask == 0)  {
             printf("time spent omp: %g\n", t1 - t0);
+            radix_sort_mpi_report_last_run();
         }
     }
 

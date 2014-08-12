@@ -72,7 +72,21 @@ static void _solve_for_layout_mpi (
         ptrdiff_t * myT_CLE, 
         ptrdiff_t * myT_C,
         MPI_Comm comm);
+static struct TIMER {
+    double time;
+    char name[10];
+} _TIMERS[20];
 
+void radix_sort_mpi_report_last_run() {
+    struct TIMER * tmr = _TIMERS;
+    double last = tmr->time;
+    tmr ++;
+    while(0 != strcmp(tmr->name, "END")) {
+        printf("%s: %g\n", tmr->name, tmr->time - last);
+        last =tmr->time;
+        tmr ++;
+    }
+}
 void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
@@ -116,15 +130,21 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     char * buffer;
     int i;
 
+    struct TIMER * tmr = _TIMERS;
 
     MPI_Allreduce(&mynmemb, &nmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
 
     if(nmemb == 1) goto exec_empty_array;
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
     /* and sort the local array */
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
+
     _find_Pmax_Pmin_C(mybase, mynmemb, Pmax, Pmin, C, &d, &o);
+
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "PmaxPmin"), tmr++);
 
     memset(P, 0, d.rsize * (o.NTask -1));
 
@@ -186,6 +206,8 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     _histogram(P, o.NTask - 1, mybase, mynmemb, myCLT, myCLE, &d);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "findP"), tmr++);
+
     /* transpose the matrix, could have been done with a new datatype */
     MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF, 
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
@@ -197,12 +219,16 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF, 
             myT_CLE + o.NTask, 1, MPI_TYPE_PTRDIFF, o.comm);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LayDistr"), tmr++);
+
     _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
 
     MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF, 
             myC, 1, MPI_TYPE_PTRDIFF, o.comm);
     MPI_Alltoall(myT_C + o.NTask, 1, MPI_TYPE_PTRDIFF, 
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
+
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySovlve"), tmr++);
 
     buffer = malloc(d.size * mynmemb);
 
@@ -296,8 +322,13 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     memcpy(mybase, buffer, mynmemb * d.size);
     free(buffer);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Exchange"), tmr++);
+
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
+
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
 exec_empty_array:
     _destroy_radix_sort_mpi(&o);
 }

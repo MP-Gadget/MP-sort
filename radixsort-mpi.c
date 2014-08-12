@@ -8,6 +8,8 @@
 
 #include <mpi.h>
 
+#include "radixsort.h"
+
 #include "internal.h"
 
 #include "internal-parallel.h"

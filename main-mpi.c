@@ -46,6 +46,8 @@ int main(int argc, char * argv[]) {
     int64_t mysum = 0;
     int64_t truesum = 0, realsum = 0;
 
+    if(ThisTask < 2) mysize = 0;
+
     for(i = 0; i < mysize; i ++) {
         mydata[i] = random() % 10000;
         mysum += mydata[i];
@@ -78,25 +80,40 @@ int main(int argc, char * argv[]) {
         }
     }
     if(NTask > 1) {
-        int prev;
+        int prev = -1;
         if(ThisTask == 0) {
-            MPI_Send(&mydata[mysize - 1], 1, MPI_INT, 
-                    ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
+            if(mysize == 0) {
+                MPI_Send(&prev, 1, MPI_INT, 
+                        ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
+            } else {
+                MPI_Send(&mydata[mysize - 1], 1, MPI_INT, 
+                        ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
+            }
         } else
         if(ThisTask == NTask - 1) {
             MPI_Recv(&prev, 1, MPI_INT,
                     ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         } else {
-            MPI_Sendrecv(
-                    &mydata[mysize - 1], 1, MPI_INT, 
-                    ThisTask + 1, 0xbeef, 
-                    &prev, 1, MPI_INT,
-                    ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            if(mysize == 0) {
+                MPI_Recv(&prev, 1, MPI_INT,
+                        ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Send(&prev, 1, MPI_INT,
+                        ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
+            } else {
+                MPI_Sendrecv(
+                        &mydata[mysize - 1], 1, MPI_INT, 
+                        ThisTask + 1, 0xbeef, 
+                        &prev, 1, MPI_INT,
+                        ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
         }
         if(ThisTask > 1) {
-            if(prev > mydata[0]) {
-                fprintf(stderr, "global ordering fail\n");
-                abort();
+            if(mysize > 0) {
+                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
+                if(prev > mydata[0]) {
+                    fprintf(stderr, "global ordering fail\n");
+                    abort();
+                }
             }
         }
     }

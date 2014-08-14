@@ -136,7 +136,7 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     MPI_Allreduce(&mynmemb, &nmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
 
-    if(nmemb == 1) goto exec_empty_array;
+    if(nmemb == 0) goto exec_empty_array;
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
     /* and sort the local array */

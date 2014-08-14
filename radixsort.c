@@ -77,11 +77,34 @@ static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir
     }
     return 0;
 }
+static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int dir) {
+    int i;
+    /* from most significant */
+    const uint64_t * u1 = r1;
+    const uint64_t * u2 = r2;
+    if(dir < 0) {
+        u1 = (const uint64_t *) ((const char*) u1 + rsize - 8);
+        u2 = (const uint64_t *) ((const char*) u2 + rsize - 8);
+    }
+    for(i = 0; i < rsize; i += 8) {
+        if(*u1 < *u2) return -1;
+        if(*u1 > *u2) return 1;
+        u1 += dir;
+        u2 += dir;
+    }
+    return 0;
+}
 static int _compar_radix_le(const void * r1, const void * r2, size_t rsize) {
     return _compar_radix(r1, r2, rsize, -1);
 }
 static int _compar_radix_be(const void * r1, const void * r2, size_t rsize) {
     return _compar_radix(r1, r2, rsize, +1);
+}
+static int _compar_radix_le_u8(const void * r1, const void * r2, size_t rsize) {
+    return _compar_radix_u8(r1, r2, rsize, -1);
+}
+static int _compar_radix_be_u8(const void * r1, const void * r2, size_t rsize) {
+    return _compar_radix_u8(r1, r2, rsize, +1);
 }
 static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsize, int dir) {
     int i;
@@ -141,10 +164,18 @@ void _setup_radix_sort(
             break;
         default:
             if(ideadbeef[0] != 0xdeadbeef) {
-                d->compar = _compar_radix_le;
+                if(rsize % 8 == 0) {
+                    d->compar = _compar_radix_le_u8;
+                } else{
+                    d->compar = _compar_radix_le;
+                }
                 d->bisect = _bisect_radix_le;
             } else {
-                d->compar = _compar_radix_be;
+                if(rsize % 8 == 0) {
+                    d->compar = _compar_radix_be_u8;
+                } else{
+                    d->compar = _compar_radix_be;
+                }
                 d->bisect = _bisect_radix_be;
             }
     }

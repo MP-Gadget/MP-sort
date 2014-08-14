@@ -74,7 +74,7 @@ int main(int argc, char * argv[]) {
 
     {
         double start = MPI_Wtime();
-        parallel_sort(mydata2, mysize, sizeof(int),
+        parallel_sort(mydata2, mysize, sizeof(int64_t),
                 compar_int);
         MPI_Barrier(MPI_COMM_WORLD);
         double end = MPI_Wtime();

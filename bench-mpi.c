@@ -16,10 +16,10 @@ static double wtime() {
 }
 
 static void radix_int(const void * ptr, void * radix, void * arg) {
-    *(int*)radix = *(const int*) ptr;
+    *(int64_t*)radix = *(const int64_t*) ptr;
 }
 static int compar_int(const void * p1, const void * p2) {
-    const unsigned int * i1 = p1, *i2 = p2;
+    const int64_t * i1 = p1, *i2 = p2;
     return (*i1 > *i2) - (*i1 < *i2);
 }
 
@@ -41,8 +41,8 @@ int main(int argc, char * argv[]) {
     }
 
     size_t mysize = atoi(argv[1]);
-    int * mydata = malloc(mysize * sizeof(int));
-    int * mydata2 = malloc(mysize * sizeof(int));
+    int64_t * mydata = malloc(mysize * sizeof(int64_t));
+    int64_t * mydata2 = malloc(mysize * sizeof(int64_t));
 
     int64_t mysum = 0;
     int64_t truesum = 0, realsum = 0;
@@ -50,7 +50,8 @@ int main(int argc, char * argv[]) {
     if(ThisTask == 2) mysize = 0;
 
     for(i = 0; i < mysize; i ++) {
-        mydata[i] = random() % 10000;
+        uint64_t data = (int64_t) random() * (int64_t) random() * random() * random();
+        mydata[i] = data / 8;
         mydata2[i] = mydata[i];
         mysum += mydata[i];
     }
@@ -59,8 +60,8 @@ int main(int argc, char * argv[]) {
 
     {
         double start = MPI_Wtime();
-        radix_sort_mpi(mydata, mysize, sizeof(int),
-                radix_int, sizeof(int),
+        radix_sort_mpi(mydata, mysize, sizeof(int64_t),
+                radix_int, sizeof(int64_t),
                 NULL, MPI_COMM_WORLD);
         MPI_Barrier(MPI_COMM_WORLD);
         double end = MPI_Wtime();
@@ -101,30 +102,30 @@ int main(int argc, char * argv[]) {
         }
     }
     if(NTask > 1) {
-        int prev = -1;
+        int64_t prev = -1;
         if(ThisTask == 0) {
             if(mysize == 0) {
-                MPI_Send(&prev, 1, MPI_INT, 
+                MPI_Send(&prev, 1, MPI_LONG_LONG, 
                         ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
             } else {
-                MPI_Send(&mydata[mysize - 1], 1, MPI_INT, 
+                MPI_Send(&mydata[mysize - 1], 1, MPI_LONG_LONG, 
                         ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
             }
         } else
         if(ThisTask == NTask - 1) {
-            MPI_Recv(&prev, 1, MPI_INT,
+            MPI_Recv(&prev, 1, MPI_LONG_LONG,
                     ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         } else {
             if(mysize == 0) {
-                MPI_Recv(&prev, 1, MPI_INT,
+                MPI_Recv(&prev, 1, MPI_LONG_LONG,
                         ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                MPI_Send(&prev, 1, MPI_INT,
+                MPI_Send(&prev, 1, MPI_LONG_LONG,
                         ThisTask + 1, 0xbeef, MPI_COMM_WORLD);
             } else {
                 MPI_Sendrecv(
-                        &mydata[mysize - 1], 1, MPI_INT, 
+                        &mydata[mysize - 1], 1, MPI_LONG_LONG, 
                         ThisTask + 1, 0xbeef, 
-                        &prev, 1, MPI_INT,
+                        &prev, 1, MPI_LONG_LONG,
                         ThisTask - 1, 0xbeef, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }

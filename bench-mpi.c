@@ -51,7 +51,8 @@ int main(int argc, char * argv[]) {
 
     for(i = 0; i < mysize; i ++) {
         uint64_t data = (int64_t) random() * (int64_t) random() * random() * random();
-        mydata[i] = data / 8;
+//        data = ThisTask * (int64_t) mysize + i;
+        mydata[i] = data & 0xffffffffffffff;
         mydata2[i] = mydata[i];
         mysum += mydata[i];
     }

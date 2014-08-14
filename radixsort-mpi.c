@@ -232,6 +232,21 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     myC[0] = 0;
     MPI_Alltoall(myT_C + o.NTask, 1, MPI_TYPE_PTRDIFF, 
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
+#if 0
+    for(i = 0;i < o.NTask; i ++) {
+        int j;
+        MPI_Barrier(o.comm);
+        if(o.ThisTask != i) continue;
+        for(j = 0; j < o.NTask + 1; j ++) {
+            printf("%d %d %d, ", 
+                    myCLT[j], 
+                    myC[j], 
+                    myCLE[j]);
+        }
+        printf("\n");
+
+    }
+#endif
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySolve"), tmr++);
 
@@ -403,15 +418,21 @@ static void _solve_for_layout_mpi (
     int my_nodup = 1;
     int nodup[NTask];
     for(i = 0; i < NTask; i ++) {
-        if(myT_CLE[NTask + i] == myT_CLT[NTask + i]) {
-            myT_C[NTask + i] = myT_CLT[NTask + i];
+        if(myT_CLE[NTask + i] <= myT_CLT[NTask + i] + 1) {
+            myT_C[NTask + i] = myT_CLE[NTask + i];
         } else {
             my_nodup = 0;
             break;
         }
     }
     MPI_Allgather(&my_nodup, 1, MPI_INT, nodup, 1, MPI_INT, comm);
-
+    int Nnodup = 0;
+    for(i = 0; i < NTask; i ++) {
+        if(nodup[i]) Nnodup ++;
+    }
+    if(ThisTask == 0) {
+        printf("Nnodup = %d\n", Nnodup);
+    }
     if(my_nodup == 0) {
         /* receive the left slab of myT_C from previous rank */
         if(ThisTask > 0) {
@@ -483,16 +504,4 @@ static void _solve_for_layout_mpi (
                     ThisTask + 1, 0xdead, comm);
         }
     }
-#if 0
-    for(i = 0; i < NTask; i ++) {
-        for(j = 0; j < NTask + 1; j ++) {
-            printf("%d %d %d, ", 
-                    GL_CLT[i * NTask1 + j], 
-                    GL_C[i * NTask1 + j], 
-                    GL_CLE[i * NTask1 + j]);
-        }
-        printf("\n");
-    }
-#endif
-
 }

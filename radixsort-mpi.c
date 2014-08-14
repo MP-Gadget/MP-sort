@@ -136,9 +136,10 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     MPI_Allreduce(&mynmemb, &nmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
 
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
+
     if(nmemb == 0) goto exec_empty_array;
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
     /* and sort the local array */
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
@@ -212,13 +213,15 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "findP"), tmr++);
 
     /* transpose the matrix, could have been done with a new datatype */
+    /*
     MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF, 
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
+    */
     MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF, 
             myT_CLT + o.NTask, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF, 
-            myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm);
+    /*MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF, 
+            myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm); */
     MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF, 
             myT_CLE + o.NTask, 1, MPI_TYPE_PTRDIFF, o.comm);
 
@@ -226,12 +229,11 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
 
-    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF, 
-            myC, 1, MPI_TYPE_PTRDIFF, o.comm);
+    myC[0] = 0;
     MPI_Alltoall(myT_C + o.NTask, 1, MPI_TYPE_PTRDIFF, 
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySovlve"), tmr++);
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySolve"), tmr++);
 
     buffer = malloc(d.size * mynmemb);
 
@@ -333,8 +335,8 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
 exec_empty_array:
+    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
     _destroy_radix_sort_mpi(&o);
 }
 
@@ -396,71 +398,90 @@ static void _solve_for_layout_mpi (
     int ThisTask;
     MPI_Comm_rank(comm, &ThisTask);
 
-    /* receive the left slab of myT_C from previous rank */
-    if(ThisTask > 0) {
-        MPI_Recv(myT_C, NTask, MPI_TYPE_PTRDIFF,
-                ThisTask - 1, 0xdead, comm, MPI_STATUS_IGNORE);
-    } else {
-        for(i = 0; i < NTask; i ++) {
-            myT_C[i] = myT_CLT[i];
-        }
-        
-    }
-
-    /* first assume we just send according to myT_CLT */
+    /* See if this rank has no duplicates; if so, 
+     * no need to participate in the solving ring */
+    int my_nodup = 1;
+    int nodup[NTask];
     for(i = 0; i < NTask; i ++) {
-        myT_C[NTask + i] = myT_CLT[NTask + i];
-    }
-
-    /* Solve for each receiving task i 
-     *
-     * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
-     *
-     * and we have GL_C[..., 0] == 0 by definition.
-     *
-     * this cannot be done in parallel wrt i because of the dependency. 
-     *
-     *  a solution is guaranteed because GL_CLE and GL_CLT
-     *  brackes the total counts C (we've found it with the
-     *  iterative counting.
-     *
-     * */
-
-    ptrdiff_t sure = 0;
-
-    /* how many will I surely receive? */
-    for(j = 0; j < NTask; j ++) {
-        ptrdiff_t recvcount = myT_C[NTask + j] - myT_C[j];
-        sure += recvcount;
-    }
-    /* let's see if we have enough */
-    ptrdiff_t deficit = C[ThisTask + 1] - C[ThisTask] - sure;
-
-    for(j = 0; j < NTask; j ++) {
-        /* deficit solved */
-        if(deficit == 0) break;
-        if(deficit < 0) {
-            fprintf(stderr, "serious bug: more items than there should be: deficit=%ld\n", deficit);
-            abort();
-        }
-        /* how much task j can supply ? */
-        ptrdiff_t supply = myT_CLE[NTask + j] - myT_C[NTask + j];
-        if(supply < 0) {
-            fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
-            abort();
-        }
-        if(supply <= deficit) {
-            myT_C[NTask + j] += supply;
-            deficit -= supply;
+        if(myT_CLE[NTask + i] == myT_CLT[NTask + i]) {
+            myT_C[NTask + i] = myT_CLT[NTask + i];
         } else {
-            myT_C[NTask + j] += deficit;
-            deficit = 0;
+            my_nodup = 0;
+            break;
         }
+    }
+    MPI_Allgather(&my_nodup, 1, MPI_INT, nodup, 1, MPI_INT, comm);
+
+    if(my_nodup == 0) {
+        /* receive the left slab of myT_C from previous rank */
+        if(ThisTask > 0) {
+            MPI_Recv(myT_C, NTask, MPI_TYPE_PTRDIFF,
+                    ThisTask - 1, 0xdead, comm, MPI_STATUS_IGNORE);
+        } else {
+            for(i = 0; i < NTask; i ++) {
+                myT_C[i] = 0;
+            }
+            
+        }
+
+        /* first assume we just send according to myT_CLT */
+        for(i = 0; i < NTask; i ++) {
+            myT_C[NTask + i] = myT_CLT[NTask + i];
+        }
+
+        /* Solve for each receiving task i 
+         *
+         * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
+         *
+         * and we have GL_C[..., 0] == 0 by definition.
+         *
+         * this cannot be done in parallel wrt i because of the dependency. 
+         *
+         *  a solution is guaranteed because GL_CLE and GL_CLT
+         *  brackes the total counts C (we've found it with the
+         *  iterative counting.
+         *
+         * */
+
+        ptrdiff_t sure = 0;
+
+        /* how many will I surely receive? */
+        for(j = 0; j < NTask; j ++) {
+            ptrdiff_t recvcount = myT_C[NTask + j] - myT_C[j];
+            sure += recvcount;
+        }
+        /* let's see if we have enough */
+        ptrdiff_t deficit = C[ThisTask + 1] - C[ThisTask] - sure;
+
+        for(j = 0; j < NTask; j ++) {
+            /* deficit solved */
+            if(deficit == 0) break;
+            if(deficit < 0) {
+                fprintf(stderr, "serious bug: more items than there should be: deficit=%ld\n", deficit);
+                abort();
+            }
+            /* how much task j can supply ? */
+            ptrdiff_t supply = myT_CLE[NTask + j] - myT_C[NTask + j];
+            if(supply < 0) {
+                fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
+                abort();
+            }
+            if(supply <= deficit) {
+                myT_C[NTask + j] += supply;
+                deficit -= supply;
+            } else {
+                myT_C[NTask + j] += deficit;
+                deficit = 0;
+            }
+        }
+
     }
 
     if(ThisTask < NTask - 1) {
-        MPI_Send(myT_C + NTask, NTask, MPI_TYPE_PTRDIFF,
-                ThisTask + 1, 0xdead, comm);
+        if(nodup[ThisTask + 1] == 0) {
+            MPI_Send(myT_C + NTask, NTask, MPI_TYPE_PTRDIFF,
+                    ThisTask + 1, 0xdead, comm);
+        }
     }
 #if 0
     for(i = 0; i < NTask; i ++) {

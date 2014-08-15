@@ -415,25 +415,29 @@ static void _solve_for_layout_mpi (
 
     /* See if this rank has no duplicates; if so, 
      * no need to participate in the solving ring */
-    int my_nodup = 1;
-    int nodup[NTask];
+    int my_resolved = 1;
+    int resolved[NTask];
+    ptrdiff_t tmpsum = 0;
     for(i = 0; i < NTask; i ++) {
-        if(myT_CLE[NTask + i] <= myT_CLT[NTask + i] + 1) {
-            myT_C[NTask + i] = myT_CLE[NTask + i];
-        } else {
-            my_nodup = 0;
-            break;
-        }
+        tmpsum += myT_CLE[NTask + i];
     }
-    MPI_Allgather(&my_nodup, 1, MPI_INT, nodup, 1, MPI_INT, comm);
-    int Nnodup = 0;
+    if(tmpsum == C[ThisTask + 1]) {
+        my_resolved = 1;
+        for(i = 0; i < NTask; i ++) {
+            myT_C[NTask + i] = myT_CLE[NTask + i];
+        }
+    } else {
+        my_resolved = 0;
+    }
+    MPI_Allgather(&my_resolved, 1, MPI_INT, resolved, 1, MPI_INT, comm);
+    int Nresolved = 0;
     for(i = 0; i < NTask; i ++) {
-        if(nodup[i]) Nnodup ++;
+        if(resolved[i]) Nresolved ++;
     }
     if(ThisTask == 0) {
-        printf("Nnodup = %d\n", Nnodup);
+        printf("Nresolved = %d\n", Nresolved);
     }
-    if(my_nodup == 0) {
+    if(my_resolved == 0) {
         /* receive the left slab of myT_C from previous rank */
         if(ThisTask > 0) {
             MPI_Recv(myT_C, NTask, MPI_TYPE_PTRDIFF,
@@ -499,7 +503,7 @@ static void _solve_for_layout_mpi (
     }
 
     if(ThisTask < NTask - 1) {
-        if(nodup[ThisTask + 1] == 0) {
+        if(resolved[ThisTask + 1] == 0) {
             MPI_Send(myT_C + NTask, NTask, MPI_TYPE_PTRDIFF,
                     ThisTask + 1, 0xdead, comm);
         }

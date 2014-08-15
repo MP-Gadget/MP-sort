@@ -57,7 +57,7 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
     _setup_radix_sort_omp(&o, &d);
 
     /* 
-     * first solve for P such that CLT[i] <= C <= CLE[i] 
+     * first solve for P such that CLT[i] < C <= CLE[i] 
      * 
      * Then calculate a communication layout.
      *
@@ -233,7 +233,7 @@ static void radix_sort_omp_single(void * base, size_t nmemb,
     /* here we know:
      * o->GL_CLT, o->GL_CLE
      * The first NTask - 1 items in CLT and CLE gives the bounds of
-     * split points  ( CLT <= split < CLE
+     * split points  ( CLT < split <= CLE)
      * */
 
     /* find split points in O->GL_C*/

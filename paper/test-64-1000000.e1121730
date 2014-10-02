@@ -1,0 +1,22 @@
+----------------------------------------
+Begin Torque Prologue on nid27641
+at Tue Sep 16 18:27:40 CDT 2014
+Job Id:			1121730.nid11293
+Username:		yfeng1
+Group:			PRAC_jp6
+Job name:		64-1000000
+Requested resources:	neednodes=64:ppn=32,nodes=64:ppn=32,walltime=00:10:00
+Queue:			low
+Account:		jp6
+End Torque Prologue:  0.041 elapsed
+----------------------------------------
+Nresolved = 2048
+radix sort: 5.4036
+FirstSort: 0.804201
+PmaxPmin: 0.00522767
+findP: 0.190918
+LayDistr: 0.602583
+LaySolve: 0.00777401
+Exchange: 3.13655
+SecondSort: 0.654737
+Application 5736586 resources: utime ~11553s, stime ~1150s, Rss ~39356, inblocks ~1245265, outblocks ~1444703

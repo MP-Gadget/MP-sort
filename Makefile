@@ -1,9 +1,20 @@
+CC=cc
 MPICC=mpicc
+PREFIX=/usr
 
-all: libradixsort.a libradixsort-omp.a libradixsort-mpi.a
+all: libradixsort.a libradixsort-mpi.a
+
+install: libradixsort.a libradixsort-mpi.a
+	install -d $(PREFIX)/lib
+	install -d $(PREFIX)/include
+	install libradixsort.a $(PREFIX)/lib/libradixsort.a
+	install libradixsort-mpi.a $(PREFIX)/lib/libradixsort-mpi.a
+	install radixsort.h $(PREFIX)/include/radixsort-mpi.h
+
 clean:
 	rm *.o *.a	
 tests: main main-mpi bench-mpi
+
 main: main.c libradixsort-omp.a libradixsort.a
 	$(CC) -o main $^
 main-mpi: main-mpi.c libradixsort-mpi.a libradixsort.a

@@ -17,24 +17,42 @@ cdef extern from "radixsort-mpi.c":
 cdef class MyClosure:
     cdef void * base
     cdef int elsize
-    cdef numpy.uint64_t [:] radixarray
-    def __init__(self, numpy.ndarray dataarray, radixarray):
+    cdef numpy.uint64_t [:, :] radixarray
+    def __init__(self, numpy.ndarray dataarray, radixkey):
         self.base = dataarray.data
         self.elsize = dataarray.strides[0]
-        self.radixarray = radixarray
+        if len(dataarray[radixkey].shape) == 1:
+            self.radixarray = dataarray[radixkey].reshape(-1, 1)
+        elif len(dataarray[radixkey].shape) == 2:
+            self.radixarray = dataarray[radixkey]
+        else:
+            raise ValueError("data[%s] is not 1d nor 2d %s" % (radixkey,
+                str(dataarray[radixkey].shape)))
 
 cdef void myradix(void * ptr, void * radix, void * arg):
     cdef MyClosure clo = <MyClosure> arg
     cdef numpy.intp_t ind
+    cdef int i
     ind = (<char*>ptr - <char*>clo.base)
     ind /= clo.elsize
-    memcpy(radix, &clo.radixarray[ind], 8)
+    cdef char * rptr = <char*>radix
+    for i in range(clo.radixarray.shape[1]):
+        memcpy(rptr, &clo.radixarray[ind, i], 8)
+        rptr += 8
 
-def sort(numpy.ndarray data, radix, comm=None):
-    """ data and radix must be C_contiguous numpy arrays,
+def sort(numpy.ndarray data, radixkey, comm=None):
+    """ 
+        Parallel sort of distributed data set `data' over MPI Communicator `comm', 
+        ordered by key given in 'radixkey'. 
+        
+        The following conditions are currently not asserted. 
+        They are required.
 
-        radix must be of uint64  """
-    cdef MyClosure clo = MyClosure(data, radix)
+        data must be C_contiguous numpy arrays,
+        data[radix] must be of dtype `uint64', and 1d.
+        
+    """
+    cdef MyClosure clo = MyClosure(data, radixkey)
     cdef MPI.MPI_Comm mpicomm
     if comm is None:
         mpicomm = MPI.MPI_COMM_WORLD
@@ -49,5 +67,6 @@ def sort(numpy.ndarray data, radix, comm=None):
         else:
             raise ValueError("only MPI.Comm objects are supported")
 
-    radix_sort_mpi(data.data, data.shape[0], data.strides[0], myradix, 8, <void*>clo, mpicomm)
+    radix_sort_mpi(data.data, data.shape[0], data.strides[0], myradix, 
+            clo.radixarray.shape[1] * 8, <void*>clo, mpicomm)
 

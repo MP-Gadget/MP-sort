@@ -17,7 +17,7 @@ cdef extern from "radixsort-mpi.c":
 cdef class MyClosure:
     cdef void * base
     cdef int elsize
-    cdef numpy.uint64_t [::1] radixarray
+    cdef numpy.uint64_t [:] radixarray
     def __init__(self, numpy.ndarray dataarray, radixarray):
         self.base = dataarray.data
         self.elsize = dataarray.strides[0]

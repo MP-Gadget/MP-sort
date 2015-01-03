@@ -7,7 +7,7 @@ data['data'] = numpy.arange(1000)[::-1]
 data['radix'][:, 1] = numpy.arange(1000)[::-1]
 data['radix'][:, 0] = -MPI.COMM_WORLD.rank
 
-sort(data, radixkey='radix')
+sort(data, orderby='radix')
 alldata = MPI.COMM_WORLD.allgather(data)
 alldata = numpy.concatenate(alldata)
 if MPI.COMM_WORLD.rank == 0:

@@ -40,20 +40,23 @@ cdef void myradix(void * ptr, void * radix, void * arg):
         memcpy(rptr, &clo.radixarray[ind, i], 8)
         rptr += 8
 
-def sort(numpy.ndarray data, radixkey, comm=None):
+def sort(numpy.ndarray data, orderby, comm=None):
     """ 
         Parallel sort of distributed data set `data' over MPI Communicator `comm', 
-        ordered by key given in 'radixkey'. 
-        
-        The following conditions are currently not asserted. 
-        They are required.
+        ordered by key given in 'orderby'. 
 
+        data[orderby] must be of dtype `uint64'. 
+        data[orderby] can be 2d, in which case the latter elements in a row has 
+        more significance.
+        
         data must be C_contiguous numpy arrays,
-        data[radix] must be of dtype `uint64', and 1d.
         
     """
-    cdef MyClosure clo = MyClosure(data, radixkey)
+    cdef MyClosure clo = MyClosure(data, orderby)
     cdef MPI.MPI_Comm mpicomm
+    if not data.flags['C_CONTIGUOUS']:
+        raise ValueError("data must be C_CONTIGUOUS")
+
     if comm is None:
         mpicomm = MPI.MPI_COMM_WORLD
     else:

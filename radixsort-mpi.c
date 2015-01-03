@@ -434,9 +434,11 @@ static void _solve_for_layout_mpi (
     for(i = 0; i < NTask; i ++) {
         if(resolved[i]) Nresolved ++;
     }
+    /*
     if(ThisTask == 0) {
         printf("Nresolved = %d\n", Nresolved);
     }
+    */
     if(my_resolved == 0) {
         /* receive the left slab of myT_C from previous rank */
         if(ThisTask > 0) {

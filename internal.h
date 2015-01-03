@@ -1,3 +1,5 @@
+#ifndef INTERNAL_H
+#define INTERNAL_H
 #include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -25,4 +27,4 @@ void _setup_radix_sort(
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg);
-
+#endif

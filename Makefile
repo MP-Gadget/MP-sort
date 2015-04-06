@@ -33,7 +33,7 @@ libradixsort-omp.a: radixsort-omp.c
 	ranlib libradixsort-omp.a
 
 libradixsort-mpi.a: radixsort-mpi.c
-	$(CC) -c -o radixsort-mpi.o radixsort-mpi.c
+	$(MPICC) -c -o radixsort-mpi.o radixsort-mpi.c
 	ar r libradixsort-mpi.a radixsort-mpi.o
 	ranlib libradixsort-mpi.a
 

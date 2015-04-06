@@ -44,8 +44,6 @@ int main(int argc, char * argv[]) {
     int64_t mysum = 0;
     int64_t truesum = 0, realsum = 0;
 
-    if(ThisTask < 2) mysize = 0;
-
     for(i = 0; i < mysize; i ++) {
         mydata[i] = random() % 10000;
         mysum += mydata[i];

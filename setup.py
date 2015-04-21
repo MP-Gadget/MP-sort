@@ -10,7 +10,7 @@ os.environ['CC'] = compiler
 os.environ['LDSHARED'] = compiler + ' -shared'
 
 extensions = [
-        Extension("mpsort.binding", ["python/binding.pyx"],
+        Extension("mpsort.binding", ["mpsort/binding.pyx"],
             include_dirs = ["./", numpy.get_include()])]
 
 setup(
@@ -20,7 +20,7 @@ setup(
     url="http://github.com/rainwoodman/mpsort",
     description="python binding of MP-sort, a peta scale sorting routine",
     zip_safe = False,
-    package_dir = {'mpsort': 'python'},
+    package_dir = {'mpsort': 'mpsort'},
     install_requires=['cython', 'numpy'],
     packages= ['mpsort'],
     requires=['numpy'],

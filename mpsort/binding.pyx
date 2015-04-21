@@ -21,10 +21,15 @@ cdef class MyClosure:
     def __init__(self, numpy.ndarray dataarray, radixkey):
         self.base = dataarray.data
         self.elsize = dataarray.strides[0]
-        if len(dataarray[radixkey].shape) == 1:
-            self.radixarray = dataarray[radixkey].reshape(-1, 1)
-        elif len(dataarray[radixkey].shape) == 2:
-            self.radixarray = dataarray[radixkey]
+        if radixkey is not None:
+            radixarray = dataarray[radixkey]
+        else:
+            radixarray = dataarray
+
+        if len(radixarray.shape) == 1:
+            self.radixarray = radixarray.reshape(-1, 1)
+        elif len(radixarray.shape) == 2:
+            self.radixarray = radixarray
         else:
             raise ValueError("data[%s] is not 1d nor 2d %s" % (radixkey,
                 str(dataarray[radixkey].shape)))
@@ -40,7 +45,7 @@ cdef void myradix(void * ptr, void * radix, void * arg):
         memcpy(rptr, &clo.radixarray[ind, i], 8)
         rptr += 8
 
-def sort(numpy.ndarray data, orderby, comm=None):
+def sort(numpy.ndarray data, orderby=None, comm=None):
     """ 
         Parallel sort of distributed data set `data' over MPI Communicator `comm', 
         ordered by key given in 'orderby'. 
@@ -51,6 +56,7 @@ def sort(numpy.ndarray data, orderby, comm=None):
         
         data must be C_contiguous numpy arrays,
         
+        if orderby is None, use data itself.
     """
     cdef MyClosure clo = MyClosure(data, orderby)
     cdef MPI.MPI_Comm mpicomm

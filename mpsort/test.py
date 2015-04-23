@@ -1,7 +1,7 @@
 from binding import *
 from mpi4py import MPI
 import numpy
-data = numpy.empty(1000, dtype=[('data', 'f4'), ('radix', ('u8', 2))])
+data = numpy.empty(1000, dtype=[('data', 'f4'), ('radix', ('i4', 2))])
 
 data['data'] = numpy.arange(1000)[::-1]
 data['radix'][:, 1] = numpy.arange(1000)[::-1]

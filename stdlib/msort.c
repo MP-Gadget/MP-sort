@@ -29,10 +29,12 @@
 #define __set_errno(ev) ((errno) = (ev))
 typedef int (*__compar_d_fn_t) (const void *, const void *, void *);
 #define __alloca alloca
-static void * __mempcpy(void *dest, const void *src, size_t n) {
+static void * ___mempcpy(void *dest, const void *src, size_t n) {
     memcpy(dest, src, n);
     return (char*) dest + n;
 }
+#define __mempcpy ___mempcpy
+
 #define  libc_hidden_def(x) ;;
 
 #include "qsort.c"

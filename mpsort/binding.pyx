@@ -2,8 +2,9 @@
 cimport numpy
 cimport libmpi as MPI
 from libc.stddef cimport ptrdiff_t
-from libc.stdint cimport uint64_t, int64_t
+from libc.stdint cimport uint64_t, int64_t, uint32_t, int32_t
 from libc.string cimport memcpy
+from libc.stdlib cimport abort
 import numpy
 from mpi4py import MPI as pyMPI
 
@@ -14,106 +15,93 @@ cdef extern from "radixsort-mpi.c":
             void (*radix)(void * ptr, void * radix, void * arg), 
             size_t rsize, 
             void * arg, MPI.MPI_Comm comm)
+    void radix_sort_mpi_newarray(void * base, size_t nmemb, 
+            void * outbase, size_t outnmemb,
+            size_t size,
+            void (*radix)(void * ptr, void * radix, void * arg), 
+            size_t rsize, 
+            void * arg, MPI.MPI_Comm comm)
 
-cdef class MyClosure:
-    cdef void * base
-    cdef int elsize
-    cdef numpy.uint64_t [:, :] radixarray_u8
-    cdef numpy.int64_t [:, :] radixarray_i8
-    cdef numpy.uint32_t [:, :] radixarray_u4
-    cdef numpy.int32_t [:, :] radixarray_i4
-    cdef void (*myradix)(void * ptr, void * radix, void * arg)
-    cdef int radix_length
+cdef struct MyClosure:
+    int elsize
+    void (*myradix)(const void * ptr, void * radix, void * arg) nogil
+    ptrdiff_t radix_offset
+    int radix_nmemb
 
-    def __init__(self, numpy.ndarray dataarray, radixkey):
-        self.base = dataarray.data
-        self.elsize = dataarray.strides[0]
-        if radixkey is not None:
-            radixarray = dataarray[radixkey]
-        else:
-            radixarray = dataarray
+cdef void closure_init(MyClosure * self, numpy.dtype dtype, radixkey):
+    cdef numpy.dtype radixdtype
 
-        if len(radixarray.shape) == 1:
-            radixarray = radixarray.reshape(-1, 1)
-        elif len(radixarray.shape) == 2:
-            radixarray = radixarray
-        else:
-            raise ValueError("data[%s] is not 1d nor 2d %s" % (radixkey,
-                str(dataarray[radixkey].shape)))
-        self.radix_length = radixarray.shape[1]
+    self.elsize = dtype.itemsize
 
-        if radixarray.dtype == numpy.dtype('u8'):
-            self.myradix = myradix_u8
-            self.radixarray_u8 = radixarray
+    if radixkey is not None:
+        radixdtype, self.radix_offset = dtype.fields[radixkey]
+    else:
+        radixdtype, self.radix_offset = dtype, 0
 
-        elif radixarray.dtype == numpy.dtype('i8'):
-            self.myradix = myradix_i8
-            self.radixarray_i8 = radixarray
-        elif radixarray.dtype == numpy.dtype('u4'):
-            self.myradix = myradix_u4
-            self.radixarray_u4 = radixarray
+    if len(radixdtype.shape) == 0:
+        self.radix_nmemb = 1
+    elif len(radixdtype.shape) == 1:
+        self.radix_nmemb = radixdtype.shape[0]
+    else:
+        raise ValueError("data[%s] is not 1d nor 2d %s" % (radixkey))
 
-        elif radixarray.dtype == numpy.dtype('i4'):
-            self.myradix = myradix_i4
-            self.radixarray_i4 = radixarray
-        else:
-            raise TypeError("data[%s] is not u8 or i8" % (radixkey))
+    #print 'radix offset =', self.radix_offset
+    #print 'radix nmemb =', self.radix_nmemb
+    #print 'radix dtype.shape = ', radixdtype.shape
+    if radixdtype.base == numpy.dtype('u8'):
+        self.myradix = myradix_u8
+    elif radixdtype.base == numpy.dtype('i8'):
+        self.myradix = myradix_i8
+    elif radixdtype.base == numpy.dtype('u4'):
+        self.myradix = myradix_u4
+    elif radixdtype.base == numpy.dtype('i4'):
+        self.myradix = myradix_i4
+    else:
+        raise TypeError("data[%s] is not u8 or i8" % (radixkey))
 
-cdef void myradix_u8(void * ptr, void * radix, void * arg):
-    cdef MyClosure clo = <MyClosure> arg
-    cdef numpy.intp_t ind
-    cdef int i
-    ind = (<char*>ptr - <char*>clo.base)
-    ind /= clo.elsize
+cdef void myradix_u8(const void * ptr, void * radix, void * arg) nogil:
+    cdef MyClosure *clo = <MyClosure*> arg
     cdef char * rptr = <char*>radix
+    cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radixarray_u8.shape[1]):
-        value = clo.radixarray_u8[ind, i]
+    for i in range(clo.radix_nmemb):
+        value = (<uint64_t *> (cptr + clo.radix_offset))[i]
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void myradix_i8(void * ptr, void * radix, void * arg):
-    cdef MyClosure clo = <MyClosure> arg
-    cdef numpy.intp_t ind
-    cdef int i
-    ind = (<char*>ptr - <char*>clo.base)
-    ind /= clo.elsize
+cdef void myradix_i8(const void * ptr, void * radix, void * arg) nogil:
+    cdef MyClosure *clo = <MyClosure*> arg
     cdef char * rptr = <char*>radix
-    cdef int64_t value
-    for i in range(clo.radixarray_i8.shape[1]):
-        value = clo.radixarray_i8[ind, i]
-        value += <int64_t>-9223372036854775808
-        memcpy(rptr, &value, 8)
-        rptr += 8
-
-cdef void myradix_u4(void * ptr, void * radix, void * arg):
-    cdef MyClosure clo = <MyClosure> arg
-    cdef numpy.intp_t ind
-    cdef int i
-    ind = (<char*>ptr - <char*>clo.base)
-    ind /= clo.elsize
-    cdef char * rptr = <char*>radix
+    cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radixarray_u4.shape[1]):
-        value = clo.radixarray_u4[ind, i]
+    for i in range(clo.radix_nmemb):
+        value = (<int64_t *> (cptr + clo.radix_offset))[i]
+        value += <uint64_t> 9223372036854775808uL
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void myradix_i4(void * ptr, void * radix, void * arg):
-    cdef MyClosure clo = <MyClosure> arg
-    cdef numpy.intp_t ind
-    cdef int i
-    ind = (<char*>ptr - <char*>clo.base)
-    ind /= clo.elsize
+cdef void myradix_u4(const void * ptr, void * radix, void * arg) nogil:
+    cdef MyClosure *clo = <MyClosure*> arg
     cdef char * rptr = <char*>radix
-    cdef int64_t value
-    for i in range(clo.radixarray_i4.shape[1]):
-        value = clo.radixarray_i4[ind, i]
-        value += <int64_t>-9223372036854775808
+    cdef char * cptr = <char*> ptr
+    cdef uint64_t value
+    for i in range(clo.radix_nmemb):
+        value = (<uint32_t *> (cptr + clo.radix_offset))[i]
         memcpy(rptr, &value, 8)
         rptr += 8
 
-def sort(numpy.ndarray data, orderby=None, comm=None):
+cdef void myradix_i4(const void * ptr, void * radix, void * arg) nogil:
+    cdef MyClosure *clo = <MyClosure*> arg
+    cdef char * rptr = <char*>radix
+    cdef char * cptr = <char*> ptr
+    cdef uint64_t value
+    for i in range(clo.radix_nmemb):
+        value = (<int32_t *> (cptr + clo.radix_offset))[i]
+        value += <uint64_t> 9223372036854775808uL
+        memcpy(rptr, &value, 8)
+        rptr += 8
+
+def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
     """ 
         Parallel sort of distributed data set `data' over MPI Communicator `comm', 
         ordered by key given in 'orderby'. 
@@ -126,12 +114,20 @@ def sort(numpy.ndarray data, orderby=None, comm=None):
         
         if orderby is None, use data itself.
     """
-    cdef MyClosure clo = MyClosure(data, orderby)
+    cdef MyClosure clo
+    closure_init(&clo, data.dtype, orderby)
     cdef MPI.MPI_Comm mpicomm
     if not data.flags['C_CONTIGUOUS']:
         raise ValueError("data must be C_CONTIGUOUS")
 
+    if out is None:
+        out = data
+
+    if not out.flags['C_CONTIGUOUS']:
+        raise ValueError("out must be C_CONTIGUOUS")
+
     if comm is None:
+        comm = pyMPI.COMM_WORLD
         mpicomm = MPI.MPI_COMM_WORLD
     else:
         if isinstance(comm, pyMPI.Comm):
@@ -144,6 +140,17 @@ def sort(numpy.ndarray data, orderby=None, comm=None):
         else:
             raise ValueError("only MPI.Comm objects are supported")
 
-    radix_sort_mpi(data.data, data.shape[0], data.strides[0], clo.myradix, 
-            clo.radix_length * 8, <void*>clo, mpicomm)
+    Ntot = comm.allreduce(len(data))
+    Ntotout = comm.allreduce(len(out))
+    
+    if Ntot != Ntotout:
+        raise ValueError("total size of array changed")
+    
+    if data.dtype.itemsize != out.dtype.itemsize:
+        raise ValueError("item size mismatch")
+
+    radix_sort_mpi_newarray(data.data, len(data), 
+            out.data, len(out),
+            data.dtype.itemsize, clo.myradix, 
+            clo.radix_nmemb * 8, <void*>&clo, mpicomm)
 

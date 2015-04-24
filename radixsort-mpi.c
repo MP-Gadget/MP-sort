@@ -62,6 +62,7 @@ static void _destroy_radix_sort_mpi(struct crmpistruct * o) {
 }
 
 static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+        size_t myoutnmemb,
         char * Pmax, char * Pmin, 
         ptrdiff_t * C,
         struct crstruct * d,
@@ -89,17 +90,32 @@ void radix_sort_mpi_report_last_run() {
         tmr ++;
     }
 }
+
 void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, 
         MPI_Comm comm) {
+    radix_sort_mpi_newarray(mybase, mynmemb, 
+        mybase, mynmemb, 
+        size, radix, rsize, arg, comm);
+}
+
+void radix_sort_mpi_newarray(void * mybase, size_t mynmemb, 
+        void * myoutbase, size_t myoutnmemb,
+        size_t size,
+        void (*radix)(const void * ptr, void * radix, void * arg), 
+        size_t rsize, 
+        void * arg, 
+        MPI_Comm comm) {
+
     struct crstruct d;
     struct crmpistruct o;
 
     struct piter pi;
 
     size_t nmemb;
+    size_t outnmemb;
 
     _setup_radix_sort(&d, size, radix, rsize, arg);
     _setup_radix_sort_mpi(&o, &d, comm);
@@ -135,18 +151,25 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
     struct TIMER * tmr = _TIMERS;
 
     MPI_Allreduce(&mynmemb, &nmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
+    MPI_Allreduce(&myoutnmemb, &outnmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
+
+    if(outnmemb != nmemb) {
+        fprintf(stderr, "total number of items in the item does not match the input %ld != %ld\n",
+                outnmemb, nmemb);
+        abort();
+    }
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
 
     if(nmemb == 0) goto exec_empty_array;
-
+        
     /* and sort the local array */
     radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
 
     MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
 
-    _find_Pmax_Pmin_C(mybase, mynmemb, Pmax, Pmin, C, &d, &o);
+    _find_Pmax_Pmin_C(mybase, mynmemb, myoutnmemb, Pmax, Pmin, C, &d, &o);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "PmaxPmin"), tmr++);
 
@@ -250,8 +273,6 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySolve"), tmr++);
 
-    buffer = malloc(d.size * mynmemb);
-
     for(i = 0; i < o.NTask; i ++) {
         SendCount[i] = myC[i + 1] - myC[i];
     }
@@ -261,6 +282,7 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
 
     SendDispl[0] = 0;
     RecvDispl[0] = 0;
+    size_t totrecv = RecvCount[0];
     for(i = 1; i < o.NTask; i ++) {
         SendDispl[i] = SendDispl[i - 1] + SendCount[i - 1];
         RecvDispl[i] = RecvDispl[i - 1] + RecvCount[i - 1];
@@ -268,8 +290,12 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
             fprintf(stderr, "SendDispl error\n");
             abort();
         }
+        totrecv += RecvCount[i];
     }
-
+    if(totrecv != myoutnmemb) {
+        fprintf(stderr, "totrecv = %td, mismatch with %td\n", totrecv, myoutnmemb);
+        abort();
+    }
 #if 0
     {
         int k;
@@ -330,6 +356,11 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
         }
     }
 #endif
+    if(myoutbase == mybase)
+        buffer = malloc(d.size * myoutnmemb);
+    else
+        buffer = myoutbase;
+
     MPI_Datatype MPI_TYPE_DATA;
     MPI_Type_contiguous(d.size, MPI_BYTE, &MPI_TYPE_DATA);
     MPI_Type_commit(&MPI_TYPE_DATA);
@@ -339,13 +370,15 @@ void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
             o.comm);
     MPI_Type_free(&MPI_TYPE_DATA);
 
-    memcpy(mybase, buffer, mynmemb * d.size);
-    free(buffer);
+    if(myoutbase == mybase) {
+        memcpy(myoutbase, buffer, myoutnmemb * d.size);
+        free(buffer);
+    }
 
     MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Exchange"), tmr++);
 
-    radix_sort(mybase, mynmemb, d.size, d.radix, d.rsize, d.arg);
+    radix_sort(myoutbase, myoutnmemb, d.size, d.radix, d.rsize, d.arg);
 
     MPI_Barrier(comm);
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
@@ -356,6 +389,7 @@ exec_empty_array:
 }
 
 static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+        size_t myoutnmemb,
         char * Pmax, char * Pmin, 
         ptrdiff_t * C,
         struct crstruct * d,
@@ -367,6 +401,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     char myPmin[d->rsize];
 
     size_t eachnmemb[o->NTask];
+    size_t eachoutnmemb[o->NTask];
     char eachPmax[d->rsize * o->NTask];
     char eachPmin[d->rsize * o->NTask];
     int i;
@@ -381,6 +416,8 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
 
     MPI_Allgather(&mynmemb, 1, MPI_TYPE_PTRDIFF, 
             eachnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
+    MPI_Allgather(&myoutnmemb, 1, MPI_TYPE_PTRDIFF, 
+            eachoutnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
     MPI_Allgather(myPmax, 1, o->MPI_TYPE_RADIX, 
             eachPmax, 1, o->MPI_TYPE_RADIX, o->comm);
     MPI_Allgather(myPmin, 1, o->MPI_TYPE_RADIX, 
@@ -389,7 +426,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
 
     C[0] = 0;
     for(i = 0; i < o->NTask; i ++) {
-        C[i + 1] = C[i] + eachnmemb[i];
+        C[i + 1] = C[i] + eachoutnmemb[i];
         if(eachnmemb[i] == 0) continue;
 
         if(d->compar(eachPmax + i * d->rsize, Pmax, d->rsize) > 0) {

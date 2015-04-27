@@ -71,6 +71,7 @@ The basic Python interface is:
 
     mpsort.sort(localdata, orderby=None)
 
+    """
     Sort an distributed array in place.
 
     Parameters
@@ -80,6 +81,8 @@ The basic Python interface is:
         for example, :code:`localdata = numpy.empty(10, dtype=[('key', 'i4'), ('value', 'f4')])`.
     orderby : scalar
         the field to be sorted by. The field must be of an integral type. 'i4', 'i8', 'u4', 'u8'.
+
+    """
     
         
 .. [1] Feng, Y., Straka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters, Cray User Group 2015

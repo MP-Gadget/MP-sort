@@ -1,7 +1,11 @@
 MP-sort
 =======
 
-A Massively Parallel Sorting Library
+A Massively Parallel Sorting Library. The library implements a histogram
+sort. The scaling of MP-Sort up to 160,000 MPI ranks has been studied by 
+[1]. MP-Sort is the sorting module in BlueTides Simulation [2].
+
+
 
 Install
 -------
@@ -27,13 +31,14 @@ Usage: C
 
 The basic C interface is:
 
-.. code :: c
+.. code:: c
 
     void radix_sort_mpi(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, MPI_Comm comm);
 
+    /*
     Parameters
     ----------
     base :
@@ -53,12 +58,14 @@ The basic C interface is:
     comm  :
         the MPI communicator for the sort. 
 
+    */
+
 Usage: Python
 -------------
 
 The basic Python interface is:
 
-.. code :: c
+.. code:: python
     
     import mpsort
 
@@ -75,9 +82,6 @@ The basic Python interface is:
         the field to be sorted by. The field must be of an integral type. 'i4', 'i8', 'u4', 'u8'.
     
         
-    
-
-
-    
-
+[1] Feng, Y., Starka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters Cray User Group 2015;
+[2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notice of the Royal Astronimical Society, 2015, submitted;
 

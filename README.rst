@@ -82,6 +82,6 @@ The basic Python interface is:
         the field to be sorted by. The field must be of an integral type. 'i4', 'i8', 'u4', 'u8'.
     
         
-.. [1] Feng, Y., Starka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters Cray User Group 2015;
-.. [2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notice of the Royal Astronimical Society, 2015, submitted;
+.. [1] Feng, Y., Straka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters, Cray User Group 2015
+.. [2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notices of the Royal Astronomical Society, 2015, submitted
 

@@ -3,7 +3,7 @@ MP-sort
 
 A Massively Parallel Sorting Library. The library implements a histogram
 sort. The scaling of MP-Sort up to 160,000 MPI ranks has been studied by 
-[1]. MP-Sort is the sorting module in BlueTides Simulation [2].
+[1]_. MP-Sort is the sorting module in BlueTides Simulation [2]_.
 
 
 
@@ -82,6 +82,6 @@ The basic Python interface is:
         the field to be sorted by. The field must be of an integral type. 'i4', 'i8', 'u4', 'u8'.
     
         
-[1] Feng, Y., Starka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters Cray User Group 2015;
-[2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notice of the Royal Astronimical Society, 2015, submitted;
+.. [1] Feng, Y., Starka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters Cray User Group 2015;
+.. [2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notice of the Royal Astronimical Society, 2015, submitted;
 

@@ -5,19 +5,19 @@ A Massively Parallel Sorting Library. The library implements a histogram
 sort. The scaling of MP-sort up to 160,000 MPI ranks has been studied by 
 [1]_. MP-Sort is the sorting module in BlueTides Simulation [2]_.
 
-Our vision is that MP-sort will significantly ease
-BigData analysis on traditional HPC platforms with MPI. 
+MP-sort can be very useful for
+BigData simulation and analysis on traditional HPC platforms with MPI. 
 
-Based on this vision, we provide 
+We provide 
 
 - a C interface that can be easily integrated
-  into BigData producers, such as large scale simulation applications; and
+  into data producers, such as large scale simulation applications; and
 
 - a Python interface that can be easily integrated 
-  into BigData consumers, such as parallel Python scripts 
+  into data consumers, such as parallel Python scripts 
   that query simulation data. 
 
-A Python example is https://github.com/bccp/nbodykit/blob/master/ichalo.py , where mpsort is used twice to match up properties of particles cross two different snapshots.
+A real world Python example is https://github.com/bccp/nbodykit/blob/master/ichalo.py , where mpsort is used twice to match up properties of particles cross two different snapshots, to establish the motion of Dark Matter halos cross cosmic times.
 
 Install
 -------

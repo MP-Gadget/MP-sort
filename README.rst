@@ -2,10 +2,20 @@ MP-sort
 =======
 
 A Massively Parallel Sorting Library. The library implements a histogram
-sort. The scaling of MP-Sort up to 160,000 MPI ranks has been studied by 
+sort. The scaling of MP-sort up to 160,000 MPI ranks has been studied by 
 [1]_. MP-Sort is the sorting module in BlueTides Simulation [2]_.
 
+Our vision is that MP-sort will significantly ease
+BigData analysis on traditional HPC platforms with MPI. 
 
+Based on this vision, we provide 
+
+ - a C interface that can be easily integrated
+into BigData producers, such as large scale simulation applications; and
+
+ - a Python interface that can be easily integrated 
+into BigData consumers, such as parallel Python scripts 
+that queries simulation data.
 
 Install
 -------

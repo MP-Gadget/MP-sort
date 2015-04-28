@@ -16,7 +16,7 @@ Use the Makefile to build / install the .a targets, and link against
 
     -lradixsort -lmpsort-mpi
 
-Makefile supports overrideing :code:`CC`, :code:`MPICC` and :code:`CFLAGS`
+Makefile supports overriding :code:`CC`, :code:`MPICC` and :code:`CFLAGS`
 
 The python binding can be installed with
 

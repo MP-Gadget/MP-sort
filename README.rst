@@ -22,15 +22,22 @@ Install
 
 Use the Makefile to build / install the .a targets, and link against 
 
-.. code :: bash
+.. code:: bash
 
     -lradixsort -lmpsort-mpi
 
 Makefile supports overriding :code:`CC`, :code:`MPICC` and :code:`CFLAGS`
 
+The header to include is
+
+.. code:: c
+    
+    #include <mpsort.h>
+
+
 The python binding can be installed with
 
-.. code :: bash
+.. code:: bash
 
     python setup.py install [--user]
 

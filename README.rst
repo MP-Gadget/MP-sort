@@ -15,7 +15,9 @@ Based on this vision, we provide
 
 - a Python interface that can be easily integrated 
   into BigData consumers, such as parallel Python scripts 
-  that queries simulation data.
+  that query simulation data. 
+
+A Python example is https://github.com/bccp/nbodykit/blob/master/ichalo.py , where mpsort is used twice to match up properties of particles cross two different snapshots.
 
 Install
 -------

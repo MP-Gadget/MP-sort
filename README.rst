@@ -11,11 +11,11 @@ BigData analysis on traditional HPC platforms with MPI.
 Based on this vision, we provide 
 
 - a C interface that can be easily integrated
-into BigData producers, such as large scale simulation applications; and
+  into BigData producers, such as large scale simulation applications; and
 
 - a Python interface that can be easily integrated 
-into BigData consumers, such as parallel Python scripts 
-that queries simulation data.
+  into BigData consumers, such as parallel Python scripts 
+  that queries simulation data.
 
 Install
 -------

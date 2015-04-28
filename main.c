@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 
-#include "radixsort.h"
+#include "mpsort.h"
 
 static double wtime() {
     struct timespec t1;

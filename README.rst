@@ -14,7 +14,7 @@ Use the Makefile to build / install the .a targets, and link against
 
 .. code :: bash
 
-    -lradixsort -lradixsort-mpi
+    -lradixsort -lmpsort-mpi
 
 Makefile supports overrideing :code:`CC`, :code:`MPICC` and :code:`CFLAGS`
 
@@ -33,7 +33,7 @@ The basic C interface is:
 
 .. code:: c
 
-    void radix_sort_mpi(void * base, size_t nmemb, size_t size,
+    void mpsort_mpi(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, MPI_Comm comm);

@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <mpi.h>
-#include "radixsort.h"
+#include "mpsort.h"
 
 #include "parallel_sort.c"
 

@@ -8,7 +8,7 @@
 
 #include <mpi.h>
 
-#include "radixsort.h"
+#include "mpsort.h"
 
 #include "internal.h"
 
@@ -36,7 +36,7 @@ struct crmpistruct {
     int ThisTask;
 };
 
-static void _setup_radix_sort_mpi(struct crmpistruct * o, struct crstruct * d, MPI_Comm comm) {
+static void _setup_mpsort_mpi(struct crmpistruct * o, struct crstruct * d, MPI_Comm comm) {
     o->comm = comm;
     MPI_Comm_size(comm, &o->NTask);
     MPI_Comm_rank(comm, &o->ThisTask);
@@ -57,7 +57,7 @@ static void _setup_radix_sort_mpi(struct crmpistruct * o, struct crstruct * d, M
     MPI_Type_commit(&o->MPI_TYPE_RADIX);
 
 }
-static void _destroy_radix_sort_mpi(struct crmpistruct * o) {
+static void _destroy_mpsort_mpi(struct crmpistruct * o) {
     MPI_Type_free(&o->MPI_TYPE_RADIX);
 }
 
@@ -80,7 +80,7 @@ static struct TIMER {
     char name[20];
 } _TIMERS[20];
 
-void radix_sort_mpi_report_last_run() {
+void mpsort_mpi_report_last_run() {
     struct TIMER * tmr = _TIMERS;
     double last = tmr->time;
     tmr ++;
@@ -91,17 +91,17 @@ void radix_sort_mpi_report_last_run() {
     }
 }
 
-void radix_sort_mpi(void * mybase, size_t mynmemb, size_t size,
+void mpsort_mpi(void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, 
         MPI_Comm comm) {
-    radix_sort_mpi_newarray(mybase, mynmemb, 
+    mpsort_mpi_newarray(mybase, mynmemb, 
         mybase, mynmemb, 
         size, radix, rsize, arg, comm);
 }
 
-void radix_sort_mpi_newarray(void * mybase, size_t mynmemb, 
+void mpsort_mpi_newarray(void * mybase, size_t mynmemb, 
         void * myoutbase, size_t myoutnmemb,
         size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
@@ -118,7 +118,7 @@ void radix_sort_mpi_newarray(void * mybase, size_t mynmemb,
     size_t outnmemb;
 
     _setup_radix_sort(&d, size, radix, rsize, arg);
-    _setup_radix_sort_mpi(&o, &d, comm);
+    _setup_mpsort_mpi(&o, &d, comm);
 
     char Pmax[d.rsize];
     char Pmin[d.rsize];
@@ -385,7 +385,7 @@ void radix_sort_mpi_newarray(void * mybase, size_t mynmemb,
 
 exec_empty_array:
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
-    _destroy_radix_sort_mpi(&o);
+    _destroy_mpsort_mpi(&o);
 }
 
 static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 

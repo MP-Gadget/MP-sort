@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <mpi.h>
-#include "radixsort.h"
+#include "mpsort.h"
 
 static double wtime() {
     struct timespec t1;
@@ -51,12 +51,12 @@ int main(int argc, char * argv[]) {
 
     MPI_Allreduce(&mysum, &truesum, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
-    radix_sort_mpi(mydata, mysize, sizeof(int),
+    mpsort_mpi(mydata, mysize, sizeof(int),
             radix_int, sizeof(int),
             NULL, MPI_COMM_WORLD);
 
     if(ThisTask == 0)  {
-        radix_sort_mpi_report_last_run();
+        mpsort_mpi_report_last_run();
     }
 
     mysum = 0;

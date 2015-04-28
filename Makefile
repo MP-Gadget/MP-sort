@@ -2,24 +2,24 @@ CC=cc
 MPICC=mpicc
 PREFIX=/usr
 
-all: libradixsort.a libradixsort-mpi.a
+all: libradixsort.a libmpsort-mpi.a
 
-install: libradixsort.a libradixsort-mpi.a
+install: libradixsort.a libmpsort-mpi.a
 	install -d $(PREFIX)/lib
 	install -d $(PREFIX)/include
 	install libradixsort.a $(PREFIX)/lib/libradixsort.a
-	install libradixsort-mpi.a $(PREFIX)/lib/libradixsort-mpi.a
-	install radixsort.h $(PREFIX)/include/radixsort-mpi.h
+	install libmpsort-mpi.a $(PREFIX)/lib/libmpsort-mpi.a
+	install mpsort.h $(PREFIX)/include/mpsort.h
 
 clean:
 	rm *.o *.a	
 tests: main main-mpi bench-mpi
 
-main: main.c libradixsort-omp.a libradixsort.a
+main: main.c libmpsort-omp.a libradixsort.a
 	$(CC) -o main $^
-main-mpi: main-mpi.c libradixsort-mpi.a libradixsort.a
+main-mpi: main-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) -o main-mpi $^
-bench-mpi: bench-mpi.c libradixsort-mpi.a libradixsort.a
+bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) -o bench-mpi $^
 
 libradixsort.a: radixsort.c
@@ -27,13 +27,13 @@ libradixsort.a: radixsort.c
 	ar r libradixsort.a radixsort.o
 	ranlib libradixsort.a
 
-libradixsort-omp.a: radixsort-omp.c
-	$(CC) -c -o radixsort-omp.o radixsort-omp.c
-	ar r libradixsort-omp.a radixsort-omp.o
-	ranlib libradixsort-omp.a
+libmpsort-omp.a: mpsort-omp.c
+	$(CC) -c -o mpsort-omp.o mpsort-omp.c
+	ar r libmpsort-omp.a mpsort-omp.o
+	ranlib libmpsort-omp.a
 
-libradixsort-mpi.a: radixsort-mpi.c
-	$(MPICC) -c -o radixsort-mpi.o radixsort-mpi.c
-	ar r libradixsort-mpi.a radixsort-mpi.o
-	ranlib libradixsort-mpi.a
+libmpsort-mpi.a: mpsort-mpi.c
+	$(MPICC) -c -o mpsort-mpi.o mpsort-mpi.c
+	ar r libmpsort-mpi.a mpsort-mpi.o
+	ranlib libmpsort-mpi.a
 

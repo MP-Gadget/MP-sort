@@ -9,7 +9,7 @@
 #include "internal.h"
 
 #include "internal-parallel.h"
-#include "radixsort.h"
+#include "mpsort.h"
 
 struct crompstruct {
     struct piter pi;
@@ -38,13 +38,13 @@ struct crompstruct {
  * it is thus very poorly written in the standards of an OPENMP program; 
  * */
 
-static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d);
-static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d);
+static void _setup_mpsort_omp(struct crompstruct * o, struct crstruct * d);
+static void _cleanup_mpsort_omp(struct crompstruct * o, struct crstruct * d);
 
-static void radix_sort_omp_single(void * base, size_t nmemb, 
+static void mpsort_omp_single(void * base, size_t nmemb, 
         struct crstruct * d, struct crompstruct * o);
 
-void radix_sort_omp(void * base, size_t nmemb, size_t size,
+void mpsort_omp(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg) {
@@ -54,7 +54,7 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
     struct crompstruct o;
     _setup_radix_sort(&d, size, radix, rsize, arg);
 
-    _setup_radix_sort_omp(&o, &d);
+    _setup_mpsort_omp(&o, &d);
 
     /* 
      * first solve for P such that CLT[i] < C <= CLE[i] 
@@ -67,13 +67,13 @@ void radix_sort_omp(void * base, size_t nmemb, size_t size,
 
 #pragma omp parallel
     {
-        radix_sort_omp_single (base, nmemb, &d, &o);
+        mpsort_omp_single (base, nmemb, &d, &o);
     }
 
-    _cleanup_radix_sort_omp(&o, &d);
+    _cleanup_mpsort_omp(&o, &d);
 }
 
-static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
+static void _setup_mpsort_omp(struct crompstruct * o, struct crstruct * d) {
     int NTaskMax = omp_get_max_threads();
 
     o->P = calloc(NTaskMax, d->rsize);
@@ -95,7 +95,7 @@ static void _setup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
     memset(o->Pmin, -1, d->rsize);
     memset(o->Pmax, 0, d->rsize);
 }
-static void _cleanup_radix_sort_omp(struct crompstruct * o, struct crstruct * d) {
+static void _cleanup_mpsort_omp(struct crompstruct * o, struct crstruct * d) {
     free(o->CLE);
     free(o->CLT);
     free(o->C);
@@ -127,7 +127,7 @@ static void _gather(void * sendbuf, int sendcount1, void * recvbuf, size_t items
 #pragma omp barrier
 }
 
-static void radix_sort_omp_single(void * base, size_t nmemb, 
+static void mpsort_omp_single(void * base, size_t nmemb, 
         struct crstruct * d, struct crompstruct * o) {
     int NTask = omp_get_num_threads();
     int ThisTask = omp_get_thread_num();

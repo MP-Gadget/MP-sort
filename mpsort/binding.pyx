@@ -10,12 +10,12 @@ from mpi4py import MPI as pyMPI
 
 cdef extern from "radixsort.c":
     pass
-cdef extern from "radixsort-mpi.c":
-    void radix_sort_mpi(void * base, size_t nmemb, size_t size,
+cdef extern from "mpsort-mpi.c":
+    void mpsort_mpi(void * base, size_t nmemb, size_t size,
             void (*radix)(void * ptr, void * radix, void * arg), 
             size_t rsize, 
             void * arg, MPI.MPI_Comm comm)
-    void radix_sort_mpi_newarray(void * base, size_t nmemb, 
+    void mpsort_mpi_newarray(void * base, size_t nmemb, 
             void * outbase, size_t outnmemb,
             size_t size,
             void (*radix)(void * ptr, void * radix, void * arg), 
@@ -149,7 +149,7 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
     if data.dtype.itemsize != out.dtype.itemsize:
         raise ValueError("item size mismatch")
 
-    radix_sort_mpi_newarray(data.data, len(data), 
+    mpsort_mpi_newarray(data.data, len(data), 
             out.data, len(out),
             data.dtype.itemsize, clo.myradix, 
             clo.radix_nmemb * 8, <void*>&clo, mpicomm)

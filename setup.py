@@ -5,7 +5,11 @@ import numpy
 
 import mpi4py
 import os
-compiler = mpi4py.get_config()['mpicc']
+try:
+    compiler = mpi4py.get_config()['mpicc']
+except:
+    compiler = os.environ['MPICC']
+
 os.environ['CC'] = compiler
 os.environ['LDSHARED'] = compiler + ' -shared'
 

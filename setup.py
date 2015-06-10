@@ -5,13 +5,19 @@ import numpy
 
 import mpi4py
 import os
-try:
-    compiler = str(mpi4py.get_config()['mpicc'])
-except:
+if 'MPICC' in os.environ:
     compiler = os.environ['MPICC']
+else:
+    try:
+        compiler = str(mpi4py.get_config()['mpicc'])
+    except:
+        pass
+    compiler = "mpicc"
 
 os.environ['CC'] = compiler
-os.environ['LDSHARED'] = compiler + ' -shared'
+
+if 'LDSHARED' not in os.environ:
+    os.environ['LDSHARED'] = compiler + ' -shared'
 
 extensions = [
         Extension("mpsort.binding", ["mpsort/binding.pyx"],

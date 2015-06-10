@@ -175,7 +175,7 @@ msort_with_tmp (const struct msort_param *p, void *b, size_t n)
 
 
 void
-qsort_r (void *b, size_t n, size_t s, __compar_d_fn_t cmp, void *arg)
+mpsort_qsort_r (void *b, size_t n, size_t s, __compar_d_fn_t cmp, void *arg)
 {
   size_t size = n * s;
   char *tmp = NULL;

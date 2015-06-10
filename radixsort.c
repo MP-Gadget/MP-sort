@@ -27,7 +27,7 @@ void radix_sort(void * base, size_t nmemb, size_t size,
         void * arg) {
     struct crstruct d;
     _setup_radix_sort(&d, size, radix, rsize, arg);
-    qsort_r(base, nmemb, size, _compute_and_compar_radix, &d);
+    mpsort_qsort_r(base, nmemb, size, _compute_and_compar_radix, &d);
 }
 
 

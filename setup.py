@@ -6,7 +6,7 @@ import numpy
 import mpi4py
 import os
 try:
-    compiler = mpi4py.get_config()['mpicc']
+    compiler = str(mpi4py.get_config()['mpicc'])
 except:
     compiler = os.environ['MPICC']
 

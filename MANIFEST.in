@@ -1,0 +1,4 @@
+include mpsort/*.pyx
+include stdlib/*.[ch]
+include *.[ch]
+include *.pxd

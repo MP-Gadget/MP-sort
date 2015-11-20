@@ -1,4 +1,4 @@
-from binding import *
+from mpsort import *
 from mpi4py import MPI
 import numpy
 

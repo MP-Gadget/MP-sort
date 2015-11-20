@@ -25,9 +25,9 @@ sort(data, orderby='radix', out=out)
 alldata = MPI.COMM_WORLD.allgather(out)
 alldata = numpy.concatenate(alldata)
 if MPI.COMM_WORLD.rank == 0:
-    print alldata['data']
-    print alldata['radix']
-    print alldata['data'].reshape(-1, NperRank).sum(axis=-1)
+    print(alldata['data'])
+    print(alldata['radix'])
+    print(alldata['data'].reshape(-1, NperRank).sum(axis=-1))
     assert numpy.allclose(
         alldata['data'].reshape(-1, NperRank).sum(axis=-1), 
         NperRank * (NperRank - 1) / 2
@@ -37,9 +37,9 @@ sort(data, orderby='radix')
 alldata = MPI.COMM_WORLD.allgather(out)
 alldata = numpy.concatenate(alldata)
 if MPI.COMM_WORLD.rank == 0:
-    print alldata['data']
-    print alldata['radix']
-    print alldata['data'].reshape(-1, NperRank).sum(axis=-1)
+    print(alldata['data'])
+    print(alldata['radix'])
+    print(alldata['data'].reshape(-1, NperRank).sum(axis=-1))
     assert numpy.allclose(
         alldata['data'].reshape(-1, NperRank).sum(axis=-1), 
         NperRank * (NperRank - 1) / 2

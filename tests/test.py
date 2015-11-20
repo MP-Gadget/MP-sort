@@ -1,3 +1,5 @@
+# always run with mpirun -n 2 or more.
+
 from mpsort import *
 from mpi4py import MPI
 import numpy

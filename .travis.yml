@@ -23,5 +23,5 @@ install:
     - python setup.py install
 
 script: 
-    - cd tests; python ./test.py
+    - cd tests; mpirun -n 4 python ./test.py
 

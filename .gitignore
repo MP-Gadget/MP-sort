@@ -2,3 +2,4 @@ build/
 mpsort/binding.c
 *.pyc
 *.so
+*.[oa]

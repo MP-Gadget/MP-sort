@@ -28,7 +28,7 @@ cdef struct MyClosure:
     ptrdiff_t radix_offset
     int radix_nmemb
 
-cdef void closure_init(MyClosure * self, numpy.dtype dtype, radixkey):
+cdef closure_init(MyClosure * self, numpy.dtype dtype, radixkey):
     cdef numpy.dtype radixdtype
 
     self.elsize = dtype.itemsize

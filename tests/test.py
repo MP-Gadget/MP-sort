@@ -20,7 +20,11 @@ out = numpy.empty(Nnew, dtype=[('data', 'f4'), ('radix', ('i4', 2))])
 data['data'] = numpy.arange(NperRank)[::-1]
 data['radix'][:, 0] = numpy.arange(NperRank)[::-1]
 data['radix'][:, 1] = -MPI.COMM_WORLD.rank
-
+try:
+    sort(data, orderby='nont')
+    raise AssertionError("Shall not reach here")
+except ValueError:
+    pass
 sort(data, orderby='radix', out=out)
 alldata = MPI.COMM_WORLD.allgather(out)
 alldata = numpy.concatenate(alldata)

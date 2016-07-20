@@ -102,21 +102,24 @@ cdef void myradix_i4(const void * ptr, void * radix, void * arg) nogil:
         rptr += 8
 
 def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
-    """ 
-        Parallel sort of distributed data set `data' over MPI Communicator `comm', 
-        ordered by key given in 'orderby'. 
+    """
+        Parallel sort of distributed data set `data' over MPI Communicator `comm',
+        ordered by key given in 'orderby'.
 
-        data[orderby] must be of dtype `uint64'. 
-        data[orderby] can be 2d, in which case the latter elements in a row has 
+        data[orderby] must be of integer types.
+        data[orderby] can be 2d, in which case the latter elements in a row has
         more significance.
-        
+
         data must be C_contiguous numpy arrays,
-        
+
         if orderby is None, use data itself.
     """
     cdef MyClosure clo
-    closure_init(&clo, data.dtype, orderby)
     cdef MPI.MPI_Comm mpicomm
+
+    # assert you can access the orderby columns.
+    key = data[orderby]
+
     if not data.flags['C_CONTIGUOUS']:
         raise ValueError("data must be C_CONTIGUOUS")
 
@@ -142,15 +145,17 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
 
     Ntot = comm.allreduce(len(data))
     Ntotout = comm.allreduce(len(out))
-    
+
     if Ntot != Ntotout:
         raise ValueError("total size of array changed")
-    
+
     if data.dtype.itemsize != out.dtype.itemsize:
         raise ValueError("item size mismatch")
 
-    mpsort_mpi_newarray(data.data, len(data), 
+    closure_init(&clo, data.dtype, orderby)
+
+    mpsort_mpi_newarray(data.data, len(data),
             out.data, len(out),
-            data.dtype.itemsize, clo.myradix, 
+            data.dtype.itemsize, clo.myradix,
             clo.radix_nmemb * 8, <void*>&clo, mpicomm)
 

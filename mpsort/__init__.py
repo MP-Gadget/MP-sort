@@ -3,6 +3,21 @@ from .binding import sort as _sort
 import numpy
 from numpy.lib.recfunctions import append_fields
 
+try:
+    unicode = unicode
+except NameError:
+    # 'unicode' is undefined, must be Python 3
+    str = str
+    unicode = str
+    bytes = bytes
+    basestring = (str,bytes)
+else:
+    # 'unicode' exists, must be Python 2
+    str = str
+    unicode = unicode
+    bytes = str
+    basestring = basestring
+
 def sort(source, orderby, out=None, comm=None):
     key = orderby
     if isinstance(key, basestring):

@@ -24,7 +24,7 @@ extensions = [
             include_dirs = ["./", numpy.get_include()])]
 
 setup(
-    name="mpsort", version="0.1.3",
+    name="mpsort", version="0.1.4",
     author="Yu Feng",
     author_email="rainwoodman@gmail.com",
     url="http://github.com/rainwoodman/mpsort",

@@ -14,51 +14,87 @@ def MPIWorld(NTask, required=[]):
     if MPI.COMM_WORLD.size < maxsize:
         raise ValueError("Test Failed because the world is too small. Increase to mpirun -n %d" % maxsize)
 
+    sizes = sorted(set(list(required) + list(NTask)))
     def dec(func):
         def wrapped(*args, **kwargs):
-            for size in sorted(set(list(required) + list(NTask))):
+            for size in sizes:
                 if MPI.COMM_WORLD.size < size: continue
-                color = MPI.COMM_WORLD.rank >= size
+
+                color = 0 if MPI.COMM_WORLD.rank < size else 1
+                MPI.COMM_WORLD.barrier()
                 comm = MPI.COMM_WORLD.Split(color)
 
                 kwargs['comm'] = comm
+                failed = 0
+                msg = ""
                 if color == 0:
-                    func(*args, **kwargs)
+                    assert comm.size == size
+                    try:
+                        func(*args, **kwargs)
+                    except:
+                        failed = 1
+                        import traceback
+                        msg = traceback.format_exc()
+                gfailed = MPI.COMM_WORLD.allreduce(failed)
+                if gfailed > 0:
+                    msg = MPI.COMM_WORLD.allgather(msg)
+                if failed: raise
+                if gfailed > 0:
+                    raise ValueError("Some ranks failed with %s" % "\n".join(msg))
 
         wrapped.__name__ = func.__name__
         return wrapped
     return dec
 
+def split(array, comm, localsize=None):
+    array = comm.bcast(array)
+    if localsize is None:
+        sp = numpy.array_split(array, comm.size)
+        return comm.scatter(sp)
+    else:
+        g = comm.allgather(localsize)
+        return comm.scatter(numpy.array_split(array, numpy.cumsum(g)[:-1]))
+
+def heal(array, comm):
+    a = comm.allgather(array)
+    a = numpy.concatenate(a, axis=0)
+    return a
+
+def adjustsize(size, comm):
+    ressize = size + 1 - 2 * ((comm.rank) % 2)
+    if comm.size % 2 == 1:
+        if comm.rank == 0:
+            ressize = size
+    return ressize
+
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
 def test_sort_inplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
-    s = comm.bcast(s)
-    local = comm.scatter(numpy.array_split(s, comm.size))
 
-    mpsort.sort(local, local, out=local, comm=comm)
+    local = split(s, comm)
+    s = heal(local, comm)
 
-    r = numpy.concatenate(comm.allgather(local))
+    g = comm.allgather(local.size)
+    mpsort.sort(local, local, out=None, comm=comm)
+
+    r = heal(local, comm)
     s.sort()
     assert_array_equal(s, r)
 
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
 def test_sort_outplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
-    s = comm.bcast(s)
 
-    local = comm.scatter(numpy.array_split(s.copy(), comm.size))
-    ressize = local.size + 1 - 2 * ((comm.rank) % 2)
-    if comm.size % 2 == 1:
-        if comm.rank == 0:
-            ressize = local.size
+    local = split(s, comm)
+    s = heal(local, comm)
 
-    res = numpy.zeros(ressize, dtype=local.dtype)
+    res = numpy.zeros(adjustsize(local.size, comm), dtype=local.dtype)
 
     mpsort.sort(local, local, out=res, comm=comm)
 
-    r = comm.allgather(res)
     s.sort()
-    r = numpy.concatenate(r)
+
+    r = heal(res, comm)
     assert_array_equal(s, r)
 
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
@@ -70,14 +106,15 @@ def test_sort_struct(comm):
     s['value'] = numpy.int32(numpy.random.random(size=1000) * 1000)
     s['key'] = s['value']
 
-    s = comm.bcast(s)
+    local = split(s, comm)
+    s = heal(local, comm)
 
-    local = comm.scatter(numpy.array_split(s, comm.size))
     res = numpy.zeros_like(local)
 
     mpsort.sort(local, 'key', out=res, comm=comm)
 
-    r = numpy.concatenate(comm.allgather(res))
+    r = heal(res, comm)
+
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
@@ -96,14 +133,14 @@ def test_sort_struct_vector(comm):
     s['vkey'][:, 0][...] = s['value']
     s['vkey'][:, 1][...] = s['value']
 
-    s = comm.bcast(s)
+    local = split(s, comm)
+    s = heal(local, comm)
 
-    local = comm.scatter(numpy.array_split(s, comm.size))
     res = numpy.zeros_like(local)
 
     mpsort.sort(local, 'vkey', out=res, comm=comm)
 
-    r = numpy.concatenate(comm.allgather(res))
+    r = heal(res, comm)
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
@@ -112,9 +149,9 @@ def test_sort_vector(comm):
     s = numpy.empty(10, dtype=[('value', 'i8')])
 
     s['value'] = numpy.int32(numpy.random.random(size=len(s)) * 1000)
-    s = comm.bcast(s)
 
-    local = comm.scatter(numpy.array_split(s, comm.size))
+    local = split(s, comm)
+    s = heal(local, comm)
 
     k = numpy.empty(len(local), ('i8', 2))
     k[:, 0][...] = local['value']
@@ -124,6 +161,22 @@ def test_sort_vector(comm):
 
     mpsort.sort(local, k, out=res, comm=comm)
 
-    r = numpy.concatenate(comm.allgather(res))
     s.sort(order='value')
+
+    r = heal(res, comm)
+
     assert_array_equal(s['value'], r['value'])
+
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_permute(comm):
+    s = numpy.arange(10)
+    local = split(s, comm)
+    i = numpy.arange(9, -1, -1)
+    ind = split(i, comm, adjustsize(local.size, comm))
+
+    res = mpsort.permute(local, ind, comm)
+    r = heal(res, comm)
+    s = s[i]
+    assert res.size == ind.size
+    assert_array_equal(r, s)

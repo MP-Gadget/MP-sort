@@ -296,7 +296,8 @@ def main(argv):
                       doctests=args.doctests,
                       coverage=args.coverage)
     except Exception as e:
-        abort(args, e)
+        #abort(args, e)
+        pass
     finally:
         os.chdir(cwd)
 
@@ -312,6 +313,7 @@ def main(argv):
             sys.exit(0)
         else:
             abort(args)
+            pass
     else:
         sys.exit(code)
 def build_project(args):

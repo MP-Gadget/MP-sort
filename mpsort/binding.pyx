@@ -147,7 +147,7 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
     Ntotout = comm.allreduce(len(out))
 
     if Ntot != Ntotout:
-        raise ValueError("total size of array changed")
+        raise ValueError("total size of array changed %d != %d" % (Ntot, Ntotout))
 
     if data.dtype.itemsize != out.dtype.itemsize:
         raise ValueError("item size mismatch")

@@ -12,9 +12,9 @@ def MPIWorld(NTask):
 
     def dec(func):
         def wrapped(*args, **kwargs):
-            for size in NTask:
-                if MPI.COMM_WORLD.size < size:
-                    return knownfailureif(True, "Test Failed because the world is too small")(func)
+            maxsize = max(NTask)
+            if MPI.COMM_WORLD.size < maxsize:
+                raise RuntimeError("Test Failed because the world is too small. Increase to mpirun -n %d" % maxsize)
 
             for size in NTask:
                 color = MPI.COMM_WORLD.rank >= size

@@ -92,7 +92,7 @@ def globalindices(array, comm):
 
     return numpy.arange(start, end, dtype=dtype)
 
-def permute(source, argindex, comm):
+def permute(source, argindex, comm, out=None):
     """
         Permute a distributed array.
 
@@ -103,27 +103,29 @@ def permute(source, argindex, comm):
         ----------
         source : array, 1d, distributed
         argindex : array, 1d, distributed
+        out : array 1d distributed for output
 
         Returns
         -------
-            source[argindex] distributed as the same partition as argindex.
+            source[argindex] distributed as the same partition as argindex, or out.
 
     """
 
     source_size = comm.allreduce(len(source))
-    argindex_size = comm.allreduce(argindex.size)
+    argindex_size = comm.allreduce(len(argindex))
 
     if source_size != argindex_size:
         raise ValueError("Global size of source and argindex is different")
 
-    dest = numpy.empty(argindex.size, (source.dtype, source.shape[1:]))
+    if out is None:
+        out = numpy.empty(len(argindex), (source.dtype, source.shape[1:]))
 
     originind = globalindices(argindex, comm)
     originind2 = numpy.empty(len(source), dtype=originind.dtype)
 
     sort(originind, orderby=argindex, out=originind2, comm=comm)
-    sort(source, orderby=originind2, out=dest, comm=comm)
-    return dest
+    sort(source, orderby=originind2, out=out, comm=comm)
+    return out
 
 def histogram(array, bins, comm, right=False):
     """
@@ -140,7 +142,7 @@ def histogram(array, bins, comm, right=False):
     recv = numpy.bincount(originrank, minlength=len(bins) + 1)
     return comm.allreduce(recv)
 
-def take(source, argindex, comm):
+def take(source, argindex, comm, out=None):
     """ Take argindex from source.
 
         source[argindex] distributed as argindex. argindex does not have to
@@ -156,6 +158,9 @@ def take(source, argindex, comm):
     # nactive has number of selected objects from this rank.
     nactive = h[comm.rank]
 
+    if out is None:
+        out = numpy.empty(len(argindex), dtype=(source.dtype, source.shape[1:]))
+
     originind = globalindices(argindex, comm)
 
     myargindex = numpy.empty(nactive, dtype=argindex.dtype)
@@ -165,10 +170,9 @@ def take(source, argindex, comm):
     sort(argindex, orderby=argindex, out=myargindex, comm=comm)
 
     myresult = source[myargindex - start]
-    result = numpy.empty(len(argindex), dtype=(source.dtype, source.shape[1:]))
 
-    sort(myresult, orderby=myoriginind, out=result, comm=comm)
-    return result
+    sort(myresult, orderby=myoriginind, out=out, comm=comm)
+    return out
 
 from numpy.testing import Tester
 test = Tester().test

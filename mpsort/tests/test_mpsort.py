@@ -196,6 +196,19 @@ def test_permute(comm):
     assert_array_equal(r, s)
 
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_permute_out(comm):
+    s = numpy.arange(10)
+    local = split(s, comm)
+    i = numpy.arange(9, -1, -1)
+    ind = split(i, comm, adjustsize(local.size, comm))
+
+    res = numpy.empty(local.size, local.dtype)
+    mpsort.permute(local, ind, comm, out=res)
+    r = heal(res, comm)
+    s = s[i]
+    assert_array_equal(r, s)
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
 def test_take(comm):
     s = numpy.arange(10)
     local = split(s, comm)
@@ -206,4 +219,17 @@ def test_take(comm):
     r = heal(res, comm)
     s = s[i]
     assert res.size == ind.size
+    assert_array_equal(r, s)
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_take_out(comm):
+    s = numpy.arange(10)
+    local = split(s, comm)
+    i = numpy.arange(9, -1, -1)
+    ind = split(i, comm, adjustsize(local.size, comm))
+
+    res = numpy.empty(local.size, local.dtype)
+    mpsort.take(local, ind, comm, out=res)
+    r = heal(res, comm)
+    s = s[i]
     assert_array_equal(r, s)

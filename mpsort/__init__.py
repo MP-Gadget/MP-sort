@@ -18,7 +18,7 @@ else:
     bytes = str
     basestring = basestring
 
-def sort(source, orderby, out=None, comm=None):
+def sort(source, orderby=None, out=None, comm=None):
     """
         Sort source array with orderby as the key.
         Store result to out.
@@ -46,25 +46,51 @@ def sort(source, orderby, out=None, comm=None):
     if isinstance(key, basestring):
         return _sort(source, key, out, comm=comm)
 
-    data1 = numpy.empty(
-            len(source), dtype=[
-                ('data', (source.dtype, source.shape[1:])),
-                ('index', (key.dtype, key.shape[1:]))])
+    if key is None:
+        D, I = 'DD'
+        data1 = numpy.empty(len(source),
+                dtype=[('D', (source.dtype, source.shape[1:]))])
+        data1['D'][...] = source
+    else:
+        D, I = 'DI'
+        data1 = numpy.empty(len(source),
+                dtype=[('D', (source.dtype, source.shape[1:])),
+                       ('I', (key.dtype, key.shape[1:]))])
 
-    data1['data'][...] = source
-    data1['index'][...] = key
+        data1['D'][...] = source
+        data1['I'][...] = key
 
     if out is None:
         out = source
-        _sort(data1, orderby='index', comm=comm)
-        out[...] = data1['data'][...]
+        _sort(data1, orderby=I, comm=comm)
+        out[...] = data1[D][...]
     else:
-        data2 = numpy.empty(
-            len(out), dtype=[
-                ('data', (out.dtype, out.shape[1:])),
-                ('index', (key.dtype, key.shape[1:]))])
-        _sort(data1, orderby='index', out=data2, comm=comm)
-        out[...] = data2['data'][...]
+        data2 = numpy.empty(len(out), dtype=data1.dtype)
+        _sort(data1, orderby=I, out=data2, comm=comm)
+        out[...] = data2[D][...]
+
+def globalrange(array, comm):
+    """
+        The start and end of local chunk in the global array
+    """
+    s = comm.allgather(len(array))
+    start = sum(s[:comm.rank])
+    end = start + s[comm.rank]
+    return (start, end)
+
+def globalindices(array, comm):
+    """
+        Construct a list of indices in the global array.
+    """
+    start, end = globalrange(array, comm)
+    globalsize = comm.bcast(end, root=comm.size - 1)
+
+    if globalsize > 1024 * 1024 * 1024:
+        dtype = 'i8'
+    else:
+        dtype = 'i4'
+
+    return numpy.arange(start, end, dtype=dtype)
 
 def permute(source, argindex, comm):
     """
@@ -84,28 +110,65 @@ def permute(source, argindex, comm):
 
     """
 
-    source_size = comm.allreduce(source.size)
+    source_size = comm.allreduce(len(source))
     argindex_size = comm.allreduce(argindex.size)
 
     if source_size != argindex_size:
         raise ValueError("Global size of source and argindex is different")
 
-    if source_size < 1024 * 1024 * 1024:
-        inddtype = 'i4'
-    else:
-        inddtype = 'i8'
-
-    start = sum(comm.allgather(argindex.size)[:comm.rank])
-    end = start + argindex.size
     dest = numpy.empty(argindex.size, (source.dtype, source.shape[1:]))
 
-    originind = numpy.arange(start, end, dtype=inddtype)
-    originind2 = numpy.empty(source.size, dtype=inddtype)
+    originind = globalindices(argindex, comm)
+    originind2 = numpy.empty(len(source), dtype=originind.dtype)
 
     sort(originind, orderby=argindex, out=originind2, comm=comm)
     sort(source, orderby=originind2, out=dest, comm=comm)
     return dest
 
+def histogram(array, bins, comm, right=False):
+    """
+        Histogram of array.
+
+        Parameters
+        ----------
+        bins : collective, array, 1d
+
+        array : distributed, array, 1d
+
+    """
+    originrank = numpy.digitize(array, bins, right)
+    recv = numpy.bincount(originrank, minlength=len(bins) + 1)
+    return comm.allreduce(recv)
+
+def take(source, argindex, comm):
+    """ Take argindex from source.
+
+        source[argindex] distributed as argindex. argindex does not have to
+        be a permutation, nor unique.
+
+    """
+    nlocal = len(source)
+    start, end = globalrange(source, comm)
+
+    # find number of selections made from my rank
+    bins = comm.allgather(end)
+    h = histogram(argindex, bins, comm)
+    # nactive has number of selected objects from this rank.
+    nactive = h[comm.rank]
+
+    originind = globalindices(argindex, comm)
+
+    myargindex = numpy.empty(nactive, dtype=argindex.dtype)
+    myoriginind = numpy.empty(nactive, dtype=originind.dtype)
+
+    sort(originind, orderby=argindex, out=myoriginind, comm=comm)
+    sort(argindex, orderby=argindex, out=myargindex, comm=comm)
+
+    myresult = source[myargindex - start]
+    result = numpy.empty(len(argindex), dtype=(source.dtype, source.shape[1:]))
+
+    sort(myresult, orderby=myoriginind, out=result, comm=comm)
+    return result
 
 from numpy.testing import Tester
 test = Tester().test

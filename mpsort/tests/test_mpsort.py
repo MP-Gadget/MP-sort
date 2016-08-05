@@ -68,6 +68,20 @@ def adjustsize(size, comm):
     return ressize
 
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_sort(comm):
+    s = numpy.int32(numpy.random.random(size=1000) * 1000)
+
+    local = split(s, comm)
+    s = heal(local, comm)
+
+    g = comm.allgather(local.size)
+    mpsort.sort(local, orderby=None, out=None, comm=comm)
+
+    r = heal(local, comm)
+    s.sort()
+    assert_array_equal(s, r)
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
 def test_sort_inplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
@@ -176,6 +190,19 @@ def test_permute(comm):
     ind = split(i, comm, adjustsize(local.size, comm))
 
     res = mpsort.permute(local, ind, comm)
+    r = heal(res, comm)
+    s = s[i]
+    assert res.size == ind.size
+    assert_array_equal(r, s)
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_take(comm):
+    s = numpy.arange(10)
+    local = split(s, comm)
+    i = numpy.arange(9, -1, -1)
+    ind = split(i, comm, adjustsize(local.size, comm))
+
+    res = mpsort.take(local, ind, comm)
     r = heal(res, comm)
     s = s[i]
     assert res.size == ind.size

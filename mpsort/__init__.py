@@ -39,18 +39,13 @@ def sort(source, orderby=None, out=None, comm=None):
 
         Returns
         -------
-            None
+            out
 
         Remarks
         -------
             source, orderby, out can be flatiter at the same time.
 
     """
-    def guess_dtype(array):
-        if hasattr(array, "dtype"):
-            return array.dtype, array.shape[1:]
-        else:
-            return array[0].dtype, array[0].shape
 
     key = orderby
     if isinstance(key, basestring):
@@ -79,6 +74,8 @@ def sort(source, orderby=None, out=None, comm=None):
         _sort(data1, orderby=I, out=data2, comm=comm)
         out[...] = data2[D][...]
 
+    return out
+
 def globalrange(array, comm):
     """
         The start and end of local chunk in the global array
@@ -101,6 +98,12 @@ def globalindices(array, comm):
         dtype = 'i4'
 
     return numpy.arange(start, end, dtype=dtype)
+
+def guess_dtype(array):
+    if hasattr(array, "dtype"):
+        return array.dtype, array.shape[1:]
+    else:
+        return array[0].dtype, array[0].shape
 
 def permute(source, argindex, comm, out=None):
     """
@@ -128,7 +131,7 @@ def permute(source, argindex, comm, out=None):
         raise ValueError("Global size of source and argindex is different")
 
     if out is None:
-        out = numpy.empty(len(argindex), (source.dtype, source.shape[1:]))
+        out = numpy.empty(len(argindex), guess_dtype(source))
 
     originind = globalindices(argindex, comm)
     originind2 = numpy.empty(len(source), dtype=originind.dtype)
@@ -169,7 +172,7 @@ def take(source, argindex, comm, out=None):
     nactive = h[comm.rank]
 
     if out is None:
-        out = numpy.empty(len(argindex), dtype=(source.dtype, source.shape[1:]))
+        out = numpy.empty(len(argindex), guess_dtype(source))
 
     originind = globalindices(argindex, comm)
 

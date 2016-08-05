@@ -112,6 +112,22 @@ def test_sort_outplace(comm):
     assert_array_equal(s, r)
 
 @MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_sort_flatiter(comm):
+    s = numpy.int32(numpy.random.random(size=1000) * 1000)
+
+    local = split(s, comm)
+    s = heal(local, comm)
+
+    res = numpy.zeros(adjustsize(local.size, comm), dtype=local.dtype)
+
+    mpsort.sort(local.flat, local.flat, out=res.flat, comm=comm)
+
+    s.sort()
+
+    r = heal(res, comm)
+    assert_array_equal(s, r)
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
 def test_sort_struct(comm):
     s = numpy.empty(1000, dtype=[
         ('value', 'i8'),

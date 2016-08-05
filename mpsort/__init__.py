@@ -41,7 +41,17 @@ def sort(source, orderby=None, out=None, comm=None):
         -------
             None
 
+        Remarks
+        -------
+            source, orderby, out can be flatiter at the same time.
+
     """
+    def guess_dtype(array):
+        if hasattr(array, "dtype"):
+            return array.dtype, array.shape[1:]
+        else:
+            return array[0].dtype, array[0].shape
+
     key = orderby
     if isinstance(key, basestring):
         return _sort(source, key, out, comm=comm)
@@ -49,13 +59,13 @@ def sort(source, orderby=None, out=None, comm=None):
     if key is None:
         D, I = 'DD'
         data1 = numpy.empty(len(source),
-                dtype=[('D', (source.dtype, source.shape[1:]))])
+                dtype=[('D', guess_dtype(source))])
         data1['D'][...] = source
     else:
         D, I = 'DI'
         data1 = numpy.empty(len(source),
-                dtype=[('D', (source.dtype, source.shape[1:])),
-                       ('I', (key.dtype, key.shape[1:]))])
+                dtype=[('D', guess_dtype(source)),
+                       ('I', guess_dtype(key))])
 
         data1['D'][...] = source
         data1['I'][...] = key

@@ -31,12 +31,17 @@ def sort(source, orderby, out=None, comm=None):
     data1['data'][...] = source
     data1['index'][...] = key
 
-    _sort(data1, orderby='index', comm=comm)
-
     if out is None:
         out = source
-
-    out[...] = data1['data'][...]
+        _sort(data1, orderby='index', comm=comm)
+        out[...] = data1['data'][...]
+    else:
+        data2 = numpy.empty(
+            len(out), dtype=[
+                ('data', (out.dtype, out.shape[1:])),
+                ('index', (key.dtype, key.shape[1:]))])
+        _sort(data1, orderby='index', out=data2, comm=comm)
+        out[...] = data2['data'][...]
 
 
 from numpy.testing import Tester

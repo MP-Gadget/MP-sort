@@ -79,11 +79,12 @@ def isroot(args):
         return MPI.COMM_WORLD.rank == 0
     else:
         return True
-def abort(args, e):
+def abort(args, e=None):
     if args.mpisub:
         from mpi4py import MPI
-        import traceback
-        traceback.print_exc()
+        if e is not None:
+            import traceback
+            traceback.print_exc()
         MPI.COMM_WORLD.Abort(-1)
 
 def main(argv):
@@ -290,7 +291,8 @@ def main(argv):
         os.chdir(test_dir)
         result = test(args.mode,
                       verbose=args.verbose if isroot(args) else 0,
-                      extra_argv=extra_argv + ['--quiet'] if not isroot(args) else [],
+                      extra_argv=extra_argv + ['--quiet'] if not isroot(args) else []
+                                            + ['--stop'] if args.mpisub else [] ,
                       doctests=args.doctests,
                       coverage=args.coverage)
     except Exception as e:
@@ -298,16 +300,20 @@ def main(argv):
     finally:
         os.chdir(cwd)
 
-    barrier(args)
-
+    code = 0
     if isinstance(result, bool):
-        sys.exit(0 if result else 1)
+        code = 0 if result else 1
     elif result.wasSuccessful():
-        sys.exit(0)
+        code = 0
     else:
-        sys.exit(1)
-
-
+        code = 1
+    if args.mpisub:
+        if code == 0:
+            sys.exit(0)
+        else:
+            abort(args)
+    else:
+        sys.exit(code)
 def build_project(args):
     """
     Build a dev version of the project.

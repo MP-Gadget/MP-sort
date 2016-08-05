@@ -37,3 +37,8 @@ def sort(source, orderby, out=None, comm=None):
         out = source
 
     out[...] = data1['data'][...]
+
+
+from numpy.testing import Tester
+test = Tester().test
+bench = Tester().bench

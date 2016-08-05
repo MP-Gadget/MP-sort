@@ -32,7 +32,7 @@ setup(
     zip_safe = False,
     package_dir = {'mpsort': 'mpsort'},
     install_requires=['cython', 'numpy'],
-    packages= ['mpsort'],
+    packages= ['mpsort', 'mpsort.tests'],
     requires=['numpy'],
     ext_modules = cythonize(extensions)
 )

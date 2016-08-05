@@ -3,9 +3,34 @@ from mpi4py import MPI
 import numpy
 from numpy.testing import assert_array_equal
 
-comm = MPI.COMM_WORLD
+def MPIWorld(NTask):
+    from numpy.testing.decorators import skipif
+    from numpy.testing.decorators import knownfailureif
 
-def test_sort_inplace():
+    if not isinstance(NTask, (tuple, list)):
+        NTask = (NTask,)
+
+    def dec(func):
+        def wrapped(*args, **kwargs):
+            for size in NTask:
+                if MPI.COMM_WORLD.size < size:
+                    return knownfailureif(True, "Test Failed because the world is too small")(func)
+
+            for size in NTask:
+                color = MPI.COMM_WORLD.rank >= size
+                comm = MPI.COMM_WORLD.Split(color)
+
+                kwargs['comm'] = comm
+                if color == 0:
+                    func(*args, **kwargs)
+                MPI.COMM_WORLD.barrier()
+
+        wrapped.__name__ = func.__name__
+        return wrapped
+    return dec
+
+@MPIWorld(NTask=(1, 2, 3, 4))
+def test_sort_inplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
     s = comm.bcast(s)
     local = comm.scatter(numpy.array_split(s, comm.size))
@@ -16,7 +41,8 @@ def test_sort_inplace():
     s.sort()
     assert_array_equal(s, r)
 
-def test_sort_outplace():
+@MPIWorld(NTask=(1, 2, 3, 4))
+def test_sort_outplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
     s = comm.bcast(s)
 
@@ -30,7 +56,8 @@ def test_sort_outplace():
     r = numpy.concatenate(r)
     assert_array_equal(s, r)
 
-def test_sort_struct():
+@MPIWorld(NTask=(1, 2, 3, 4))
+def test_sort_struct(comm):
     s = numpy.empty(1000, dtype=[
         ('value', 'i8'),
         ('key', 'i8')])
@@ -49,7 +76,8 @@ def test_sort_struct():
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
-def test_sort_struct_vector():
+@MPIWorld(NTask=(1, 2, 3, 4))
+def test_sort_struct_vector(comm):
     s = numpy.empty(10, dtype=[
         ('value', 'i8'),
         ('key', 'i8'),
@@ -74,7 +102,8 @@ def test_sort_struct_vector():
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
-def test_sort_vector():
+@MPIWorld(NTask=(1, 2, 3, 4))
+def test_sort_vector(comm):
     s = numpy.empty(10, dtype=[('value', 'i8')])
 
     s['value'] = numpy.int32(numpy.random.random(size=len(s)) * 1000)

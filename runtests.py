@@ -95,6 +95,8 @@ def main(argv):
                         help="do not build the project (use system installed version)")
     parser.add_argument("--mpisub", action="store_true", default=False,
                         help="run as a mpisub.")
+    parser.add_argument("--mpi-unmute", action="store_true", default=False,
+                        help="unmute other ranks")
     parser.add_argument("--build-only", "-b", action="store_true", default=False,
                         help="just build, do not run any tests")
     parser.add_argument("--doctests", action="store_true", default=False,
@@ -280,9 +282,9 @@ def main(argv):
             pass
     else:
         # mute the rest.
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-        pass
+        if not args.mpi_unmute:
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
 
     barrier(args)
 

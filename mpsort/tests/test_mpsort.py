@@ -4,19 +4,15 @@ import numpy
 from numpy.testing import assert_array_equal
 
 def MPIWorld(NTask):
-    from numpy.testing.decorators import skipif
-    from numpy.testing.decorators import knownfailureif
-
     if not isinstance(NTask, (tuple, list)):
         NTask = (NTask,)
 
+    maxsize = max(NTask)
+    if MPI.COMM_WORLD.size < maxsize:
+        raise ValueError("Test Failed because the world is too small. Increase to mpirun -n %d" % maxsize)
+
     def dec(func):
         def wrapped(*args, **kwargs):
-            maxsize = max(NTask)
-            if MPI.COMM_WORLD.size < maxsize:
-#                raise RuntimeError("Test Failed because the world is too small. Increase to mpirun -n %d" % maxsize)
-                pass
-
             for size in NTask:
                 if MPI.COMM_WORLD.size < size: pass
                 color = MPI.COMM_WORLD.rank >= size

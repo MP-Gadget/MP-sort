@@ -249,3 +249,7 @@ def test_take_out(comm):
     r = heal(res, comm)
     s = s[i]
     assert_array_equal(r, s)
+
+def test_version():
+    import mpsort
+    assert hasattr(mpsort, "__version__")

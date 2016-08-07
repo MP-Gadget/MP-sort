@@ -1,3 +1,5 @@
+from .version import __version__
+
 from .binding import sort as _sort
 
 import numpy

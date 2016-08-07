@@ -33,4 +33,4 @@ install:
 
 script: 
     - python runtests.py --mpirun="mpirun -n 4"
-    - bash check_tag.sh
+    - bash check_tag.sh mpsort/version.py

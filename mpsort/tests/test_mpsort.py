@@ -253,3 +253,9 @@ def test_take_out(comm):
 def test_version():
     import mpsort
     assert hasattr(mpsort, "__version__")
+
+@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+def test_histogram_empty(comm):
+    mpsort.histogram([], [1], comm)
+    # no error shall be raised
+

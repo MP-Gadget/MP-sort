@@ -148,12 +148,20 @@ def histogram(array, bins, comm, right=False):
 
         Parameters
         ----------
-        bins : collective, array, 1d
+        bins : collective, array, 1d.
+            Bin edges.
 
-        array : distributed, array, 1d
+        array : distributed, array, 1d, [] accepted.
+
+        Returns
+        -------
+        The histogram. The bin edges.
 
     """
-    originrank = numpy.digitize(array, bins, right)
+    if len(array) == 0:
+        originrank = []
+    else:
+        originrank = numpy.digitize(array, bins, right)
     recv = numpy.bincount(originrank, minlength=len(bins) + 1)
     return comm.allreduce(recv)
 

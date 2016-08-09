@@ -23,7 +23,6 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda/
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
-    - pip install mpi4py_test
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
@@ -32,5 +31,6 @@ install:
     - python setup.py install
 
 script: 
+    - pip install mpi4py_test
     - python runtests.py --mpirun="mpirun -n 4"
     - bash check_tag.sh mpsort/version.py

@@ -102,10 +102,10 @@ def globalindices(array, comm):
     return numpy.arange(start, end, dtype=dtype)
 
 def guess_dtype(array):
-    if hasattr(array, "dtype"):
-        return array.dtype, array.shape[1:]
-    else:
-        return array[0].dtype, array[0].shape
+    if isinstance(array, numpy.flatiter):
+        array = array.base
+        return array.dtype, ()
+    return array.dtype, array.shape[1:]
 
 def permute(source, argindex, comm, out=None):
     """

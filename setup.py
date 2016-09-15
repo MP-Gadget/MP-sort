@@ -11,8 +11,8 @@ else:
     try:
         compiler = str(mpi4py.get_config()['mpicc'])
     except:
+        compiler = "mpicc"
         pass
-    compiler = "mpicc"
 
 os.environ['CC'] = compiler
 

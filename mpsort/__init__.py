@@ -186,7 +186,7 @@ def take(source, argindex, comm, out=None):
 
     originind = globalindices(argindex, comm)
 
-    myargindex = numpy.empty(nactive, dtype=argindex.dtype)
+    myargindex = numpy.empty(nactive, dtype=guess_dtype(argindex))
     myoriginind = numpy.empty(nactive, dtype=originind.dtype)
 
     sort(originind, orderby=argindex, out=myoriginind, comm=comm)

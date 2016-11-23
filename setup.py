@@ -1,23 +1,35 @@
 from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
+from distutils.command.build_ext import build_ext
 import numpy
 
 import mpi4py
 import os
-if 'MPICC' in os.environ:
-    compiler = os.environ['MPICC']
-else:
-    try:
-        compiler = str(mpi4py.get_config()['mpicc'])
-    except:
-        compiler = "mpicc"
-        pass
 
-os.environ['CC'] = compiler
+class build_ext_subclass(build_ext):
+    user_options = build_ext.user_options + \
+            [
+            ('mpicc', None, 'MPICC')
+            ]
+    def initialize_options(self):
+        try:
+            compiler = str(mpi4py.get_config()['mpicc'])
+        except:
+            compiler = "mpicc"
 
-if 'LDSHARED' not in os.environ:
-    os.environ['LDSHARED'] = compiler + ' -shared'
+        self.mpicc = os.environ.get('MPICC', compiler)
+
+        build_ext.initialize_options(self)
+
+    def finalize_options(self):
+        build_ext.finalize_options(self)
+
+    def build_extensions(self):
+        # turns out set_executables only works for linker_so, but for compiler_so
+        self.compiler.compiler_so[0] = self.mpicc
+        self.compiler.linker_so[0] = self.mpicc
+        build_ext.build_extensions(self)
 
 extensions = [
         Extension("mpsort.binding", ["mpsort/binding.pyx"],
@@ -45,5 +57,8 @@ setup(
     install_requires=['cython', 'numpy'],
     packages= ['mpsort', 'mpsort.tests'],
     requires=['numpy'],
+    cmdclass = {
+        "build_ext": build_ext_subclass
+    },
     ext_modules = cythonize(extensions)
 )

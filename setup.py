@@ -54,9 +54,9 @@ setup(
     description="python binding of MP-sort, a peta scale sorting routine",
     zip_safe = False,
     package_dir = {'mpsort': 'mpsort'},
-    install_requires=['cython', 'numpy'],
+    install_requires=['cython', 'numpy', 'mpi4py'],
     packages= ['mpsort', 'mpsort.tests'],
-    requires=['numpy'],
+    license='BSD-2-Clause',
     cmdclass = {
         "build_ext": build_ext_subclass
     },

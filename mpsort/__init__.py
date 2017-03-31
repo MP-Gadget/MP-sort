@@ -196,7 +196,3 @@ def take(source, argindex, comm, out=None):
 
     sort(myresult, orderby=myoriginind, out=out, comm=comm)
     return out
-
-from numpy.testing import Tester
-test = Tester().test
-bench = Tester().bench

@@ -1,5 +1,5 @@
 import mpsort
-from mpi4py_test import MPIWorld
+from runtests.mpi import MPITest
 import numpy
 from numpy.testing import assert_array_equal
 
@@ -24,7 +24,7 @@ def adjustsize(size, comm):
             ressize = size
     return ressize
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
@@ -38,7 +38,7 @@ def test_sort(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_inplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
@@ -52,7 +52,7 @@ def test_sort_inplace(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_outplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
@@ -68,7 +68,7 @@ def test_sort_outplace(comm):
     r = heal(res, comm)
     assert_array_equal(s, r)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_flatiter(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
@@ -84,7 +84,7 @@ def test_sort_flatiter(comm):
     r = heal(res, comm)
     assert_array_equal(s, r)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_struct(comm):
     s = numpy.empty(1000, dtype=[
         ('value', 'i8'),
@@ -105,7 +105,7 @@ def test_sort_struct(comm):
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_struct_vector(comm):
     s = numpy.empty(10, dtype=[
         ('value', 'i8'),
@@ -131,7 +131,7 @@ def test_sort_struct_vector(comm):
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_sort_vector(comm):
     s = numpy.empty(10, dtype=[('value', 'i8')])
 
@@ -155,7 +155,7 @@ def test_sort_vector(comm):
     assert_array_equal(s['value'], r['value'])
 
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_permute(comm):
     s = numpy.arange(10)
     local = split(s, comm)
@@ -168,7 +168,7 @@ def test_permute(comm):
     assert res.size == ind.size
     assert_array_equal(r, s)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_permute_out(comm):
     s = numpy.arange(10)
     local = split(s, comm)
@@ -181,7 +181,7 @@ def test_permute_out(comm):
     s = s[i]
     assert_array_equal(r, s)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_take(comm):
     s = numpy.arange(10)
     local = split(s, comm)
@@ -194,7 +194,7 @@ def test_take(comm):
     assert res.size == ind.size
     assert_array_equal(r, s)
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_take_out(comm):
     s = numpy.arange(10)
     local = split(s, comm)
@@ -211,7 +211,7 @@ def test_version():
     import mpsort
     assert hasattr(mpsort, "__version__")
 
-@MPIWorld(NTask=(1, 2, 3, 4), required=1)
+@MPITest(commsize=(1, 2, 3, 4))
 def test_histogram_empty(comm):
     mpsort.histogram([], [1], comm)
     # no error shall be raised

@@ -1,9 +1,14 @@
 MP-sort
 =======
 
+
 .. image:: https://travis-ci.org/rainwoodman/MP-sort.svg?branch=master
        :target: https://travis-ci.org/rainwoodman/MP-sort
 
+DOI:
+.. image:: https://zenodo.org/badge/22829423.svg
+   :target: https://zenodo.org/badge/latestdoi/22829423
+   
 A Massively Parallel Sorting Library. The library implements a histogram
 sort. The scaling of MP-sort up to 160,000 MPI ranks has been studied by 
 [1]_. MP-Sort is the sorting module in BlueTides Simulation [2]_.

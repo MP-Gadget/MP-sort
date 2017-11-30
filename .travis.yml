@@ -26,7 +26,8 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose mpi4py=2.0.0 cython pytest
+    - conda install --yes numpy=$NUMPY_VERSION nose cython pytest
+    - conda install -c bccp mpi4py mpich
     - python setup.py install
 
 script: 

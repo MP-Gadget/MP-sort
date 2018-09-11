@@ -10,15 +10,20 @@ from mpi4py import MPI as pyMPI
 
 cdef extern from "radixsort.c":
     pass
+
 cdef extern from "mpsort-mpi.c":
-    void mpsort_mpi(void * base, size_t nmemb, size_t size,
-            void (*radix)(void * ptr, void * radix, void * arg), 
-            size_t rsize, 
-            void * arg, MPI.MPI_Comm comm)
+    int MPSORT_ENABLE_SPARSE_ALLTOALLV
+    int MPSORT_DISABLE_IALLREDUCE
+    int MPSORT_DISABLE_GATHER_SORT
+    int MPSORT_REQUIRE_GATHER_SORT
+    int MPSORT_REQUIRE_SPARSE_ALLTOALLV
+
+    void mpsort_mpi_set_options(int options)
+    void mpsort_mpi_unset_options(int options)
     void mpsort_mpi_newarray(void * base, size_t nmemb, 
             void * outbase, size_t outnmemb,
             size_t size,
-            void (*radix)(void * ptr, void * radix, void * arg), 
+            void (*radix)(void * ptr, void * radix, void * arg),
             size_t rsize, 
             void * arg, MPI.MPI_Comm comm)
 
@@ -101,18 +106,36 @@ cdef void myradix_i4(const void * ptr, void * radix, void * arg) nogil:
         memcpy(rptr, &value, 8)
         rptr += 8
 
-def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
+def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tuning=[]):
     """
         Parallel sort of distributed data set `data' over MPI Communicator `comm',
         ordered by key given in 'orderby'.
 
-        data[orderby] must be of integer types.
-        data[orderby] can be 2d, in which case the latter elements in a row has
-        more significance.
+        Parameters
+        ----------
+        data : numpy.ndarray
+            the input data; must be C_contiguous numpy arrays,
 
-        data must be C_contiguous numpy arrays,
+        orderby : string or indices
 
-        if orderby is None, use data itself.
+            data[orderby] must be of integer types.
+            data[orderby] can be 2d, in which case the latter elements in a row has
+            more significance.
+
+            if orderby is None, use data itself.
+
+        out : numpy.ndarray or None
+            the output array; if None, inplace
+
+        comm : MPIComm or None
+            the communicaotr, None for COMM_WORLD
+
+        tuning: list of strings
+            'ENABLE_SPARSE_ALLTOALLV'
+            'DISABLE_IALLREDUCE'
+            'DISABLE_GATHER_SORT'
+            'REQUIRE_GATHER_SORT'
+            'REQUIRE_SPARSE_ALLTOALLV'
     """
     cdef MyClosure clo
     cdef MPI.MPI_Comm mpicomm
@@ -153,6 +176,21 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None):
         raise ValueError("item size mismatch")
 
     closure_init(&clo, data.dtype, orderby)
+
+    # hope that GIL ensures nobody will mess with the options
+
+    mpsort_mpi_unset_options(-1)
+
+    if 'ENABLE_SPARSE_ALLTOALLV' in tuning:
+        mpsort_mpi_set_options(MPSORT_ENABLE_SPARSE_ALLTOALLV)
+    if 'DISABLE_IALLREDUCE' in tuning:
+        mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE)
+    if 'DISABLE_GATHER_SORT' in tuning:
+        mpsort_mpi_set_options(MPSORT_DISABLE_GATHER_SORT)
+    if 'REQUIRE_GATHER_SORT' in tuning:
+        mpsort_mpi_set_options(MPSORT_REQUIRE_GATHER_SORT)
+    if 'REQUIRE_SPARSE_ALLTOALLV' in tuning:
+        mpsort_mpi_set_options(MPSORT_REQUIRE_SPARSE_ALLTOALLV)
 
     mpsort_mpi_newarray(data.data, len(data),
             out.data, len(out),

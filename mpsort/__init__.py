@@ -20,7 +20,7 @@ else:
     bytes = str
     basestring = basestring
 
-def sort(source, orderby=None, out=None, comm=None):
+def sort(source, orderby=None, out=None, comm=None, tuning=[]):
     """
         Sort source array with orderby as the key.
         Store result to out.
@@ -39,6 +39,13 @@ def sort(source, orderby=None, out=None, comm=None):
             the itemsize must be the same as source
             if None, the sort is in-place.
 
+        tuning: list of strings
+            'ENABLE_SPARSE_ALLTOALLV'
+            'DISABLE_IALLREDUCE'
+            'DISABLE_GATHER_SORT'
+            'REQUIRE_GATHER_SORT'
+            'REQUIRE_SPARSE_ALLTOALLV'
+
         Returns
         -------
             out
@@ -51,7 +58,7 @@ def sort(source, orderby=None, out=None, comm=None):
 
     key = orderby
     if isinstance(key, basestring):
-        return _sort(source, key, out, comm=comm)
+        return _sort(source, key, out, comm=comm, tuning=tuning)
 
     if key is None:
         D, I = 'DD'
@@ -69,11 +76,11 @@ def sort(source, orderby=None, out=None, comm=None):
 
     if out is None:
         out = source
-        _sort(data1, orderby=I, comm=comm)
+        _sort(data1, orderby=I, comm=comm, tuning=tuning)
         out[...] = data1[D][...]
     else:
         data2 = numpy.empty(len(out), dtype=data1.dtype)
-        _sort(data1, orderby=I, out=data2, comm=comm)
+        _sort(data1, orderby=I, out=data2, comm=comm, tuning=tuning)
         out[...] = data2[D][...]
 
     return out

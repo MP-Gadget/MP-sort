@@ -125,12 +125,13 @@ There are also flags controlling the algorithm used by `MPI_Alltoallv`.
 If the communication is very sparse (e.g. mostly sorted data). Then using a sparse algorithm based on
 non-blocking send / recv may provide better performance; some MPI implementations do not automatically switch
 the algorithm. We can allow mpsort to automatically select a sparse algorithm by setting
-`mpsort_mpi_set_option(MPSORT_ENABLE_SPARSE_ALLTOALLV)`, or passing `'ENABLE_SPARSE_ALLTOALLV'` to the tuning
+the environment `MPSORT_ENABLE_SPARSE_ALLTOALLV`, calling `mpsort_mpi_set_option(MPSORT_ENABLE_SPARSE_ALLTOALLV)`, or passing `'ENABLE_SPARSE_ALLTOALLV'` to the tuning
 argument of the python interface.
 
-On MPI-3, MP-Sort will use non-blocking `MPI_Iallreduce` to build the histogram. This may not always be desirable. use `mpsort_mpi_set_option(MPSORT_DISABLE_IALLREDUCE)` to avoid this.
+On MPI-3, MP-Sort will use non-blocking `MPI_Iallreduce` to build the histogram. This may not always be desirable. Set `MPSORT_DISABLE_IALLREDUCE` to avoid this.
 
 
 .. [1] Feng, Y., Straka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters, Cray User Group 2015
 .. [2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notices of the Royal Astronomical Society, 2015, submitted
+
 

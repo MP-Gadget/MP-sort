@@ -108,7 +108,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         struct crstruct * d,
         struct crmpistruct * o);
 
-static void _solve_for_layout_mpi (
+static int _solve_for_layout_mpi (
         int NTask, 
         ptrdiff_t * C,
         ptrdiff_t * myT_CLT, 
@@ -507,6 +507,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
+    return 0;
 }
 
 static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
@@ -559,7 +560,8 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     }
 }
 
-static void _solve_for_layout_mpi (
+static int
+_solve_for_layout_mpi (
         int NTask, 
         ptrdiff_t * C,
         ptrdiff_t * myT_CLT, 

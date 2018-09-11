@@ -96,7 +96,7 @@ The basic Python interface is:
     
     import mpsort
 
-    mpsort.sort(localdata, orderby=None)
+    mpsort.sort(localdata, orderby=None, comm=None, tuning=[])
 
     """
     Sort an distributed array in place.
@@ -110,8 +110,27 @@ The basic Python interface is:
         the field to be sorted by. The field must be of an integral type. 'i4', 'i8', 'u4', 'u8'.
 
     """
-    
-        
+
+Tuning
+------
+
+For runs with very large number of ranks, we may experience slow down due to the backend selecting a conservative `MPI_Allreducev` implementation. For Cray MPI, the following environment helps:
+
+.. code::
+
+    export MPICH_ALLREDUCE_BLK_SIZE=$((4096*1024*2))
+
+There are also flags controlling the algorithm used by `MPI_Alltoallv`.
+
+If the communication is very sparse (e.g. mostly sorted data). Then using a sparse algorithm based on
+non-blocking send / recv may provide better performance; some MPI implementations do not automatically switch
+the algorithm. We can allow mpsort to automatically select a sparse algorithm by setting
+`mpsort_mpi_set_option(MPSORT_ENABLE_SPARSE_ALLTOALLV)`, or passing `'ENABLE_SPARSE_ALLTOALLV'` to the tuning
+argument of the python interface.
+
+On MPI-3, MP-Sort will use non-blocking `MPI_Iallreduce` to build the histogram. This may not always be desirable. use `mpsort_mpi_set_option(MPSORT_DISABLE_IALLREDUCE)` to avoid this.
+
+
 .. [1] Feng, Y., Straka, M., Di Matteo, T., Croft, R., MP-Sort: Sorting for a Cosmological Simulation on BlueWaters, Cray User Group 2015
 .. [2] Feng et. al, BlueTides: First galaxies and reionization, Monthly Notices of the Royal Astronomical Society, 2015, submitted
 

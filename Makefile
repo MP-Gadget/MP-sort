@@ -1,5 +1,5 @@
-CC=cc
-MPICC=mpicc
+CC?=cc
+MPICC?=mpicc
 PREFIX=/usr
 
 all: libradixsort.a libmpsort-mpi.a

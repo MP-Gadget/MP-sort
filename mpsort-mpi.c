@@ -286,27 +286,80 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         iter ++;
         piter_bisect(&pi, P);
 
-        _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
-
 #if MPI_VERSION >= 3
         if (mpsort_mpi_has_options(MPSORT_DISABLE_IALLREDUCE)
         ) {
+            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
+
             MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
                     MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
             MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
                     MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
         } else {
+            /* overlap allreduce with histogramming by pipelining */
+            myCLT[0] = 0;
+            myCLE[0] = 0;
             MPI_Request r[2];
 
-            MPI_Iallreduce(myCLT, CLT, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[0]);
-            MPI_Iallreduce(myCLE, CLE, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[1]);
+            int bt = 0;
+            /* pipelining to 32 chunks at most; but never use chunks less than 1024 ranks.
+             * so chunking only happens at very large ranks. */
+            int cs = o.NTask / 32;
+            if (cs < 1024) cs = 1024;
 
-            MPI_Waitall(2, r, MPI_STATUSES_IGNORE);
-            /* no free because MPI_Wait frees it automatially. */
+            int it = 0;
+            while(1) {
+
+                if(bt > 0) {
+                    /* wait for the reduce to wrap up; notice this is ran once more than myCLT/myCLE is calcualted */
+                    MPI_Waitall(2, r, MPI_STATUSES_IGNORE);
+
+                    /* no free because MPI_Wait frees it automatially. */
+                }
+
+                /* already worked out the last bin.*/
+                if(it > o.NTask) break;
+
+                /* calculate the next bins */
+                for (it = bt; it < bt + cs; it ++) {
+                    if (it == 0) {
+                        myCLT[it] = 0;
+                        myCLE[it] = 0;
+                    }
+                    if (it > 0 && it < o.NTask) {
+                        /* No need to start from the beginging of mybase, since myubase and P are both sorted */
+                        myCLT[it] = _bsearch_last_lt(P + (it - 1) * d.rsize, ((char*) o.mybase) + myCLT[it - 1] * d.size,
+                                            o.mynmemb - myCLT[it - 1], &d) + 1 + myCLT[it - 1];
+                        myCLE[it] = _bsearch_last_le(P + (it - 1) * d.rsize, ((char*) o.mybase) + myCLE[it - 1] * d.size,
+                                            o.mynmemb - myCLE[it - 1], &d) + 1 + myCLE[it - 1];
+                    }
+                    if(it == o.NTask) {
+                        /* last bin */
+                        myCLT[it] = o.mynmemb;
+                        myCLE[it] = o.mynmemb;
+                    }
+                    if(it > o.NTask) {
+                        break;
+                    }
+                }
+
+                /* number of items actuallly filled */
+                int ccs = it - bt;
+
+                /* reduce the bins just calculated */
+                MPI_Iallreduce(myCLT + bt, CLT + bt, ccs,
+                        MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[0]);
+                MPI_Iallreduce(myCLE + bt, CLE + bt, ccs,
+                        MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[1]);
+
+                /* it will leak to the next iteration to terminate the loop after the wait. */
+                bt += cs;
+            }
+
         }
 #else
+        _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
+
         MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
         MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
@@ -321,7 +374,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
                 MPI_Barrier(o.comm);
                 int i;
                 if(o.ThisTask != k) continue;
-                
+
                 printf("P (%d): PMin %d PMax %d P ", 
                         o.ThisTask, 
                         *(int*) Pmin,

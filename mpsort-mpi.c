@@ -115,10 +115,12 @@ static int _solve_for_layout_mpi (
         ptrdiff_t * myT_CLE, 
         ptrdiff_t * myT_C,
         MPI_Comm comm);
+
 static struct TIMER {
     double time;
     char name[20];
-} _TIMERS[20];
+
+} _TIMERS[512];
 
 void mpsort_mpi_report_last_run() {
     struct TIMER * tmr = _TIMERS;
@@ -354,6 +356,8 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
 #endif
+
+        (iter>10?tmr--:0, tmr->time = MPI_Wtime(), sprintf(tmr->name, "bisect%04d", iter), tmr++);
 
         piter_accept(&pi, P, C, CLT, CLE);
 #if 0

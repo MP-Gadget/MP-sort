@@ -62,18 +62,6 @@ _setup_mpsort_mpi(struct crmpistruct * o,
     MPI_Comm_size(comm, &o->NTask);
     MPI_Comm_rank(comm, &o->ThisTask);
 
-    if(MPI_TYPE_PTRDIFF == 0) {
-        if(sizeof(ptrdiff_t) == sizeof(long long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
-        }
-        if(sizeof(ptrdiff_t) == sizeof(long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG;
-        }
-        if(sizeof(ptrdiff_t) == sizeof(int)) {
-            MPI_TYPE_PTRDIFF = MPI_INT;
-        }
-    }
-
     o->mybase = d->base;
     o->mynmemb = d->nmemb;
     o->myoutbase = myoutbase;
@@ -122,6 +110,135 @@ static struct TIMER {
 
 } _TIMERS[512];
 
+static int
+_assign_colors(size_t glocalsize, size_t * sizes, int * ncolor, MPI_Comm comm)
+{
+    int NTask;
+    int ThisTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+
+    int i;
+    int mycolor;
+    size_t current_size = 0;
+    int current_color = 0;
+    int lastcolor = 0;
+    for(i = 0; i < NTask; i ++) {
+        current_size += sizes[i];
+
+        lastcolor = current_color;
+
+        if(i == ThisTask) {
+            mycolor = lastcolor;
+        }
+
+        if(current_size > glocalsize) {
+            current_size = 0;
+            current_color ++;
+        }
+    }
+
+    *ncolor = lastcolor + 1;
+    return mycolor;
+}
+
+static size_t
+_collect_sizes(size_t localsize, size_t * sizes, size_t * myoffset, MPI_Comm comm)
+{
+
+    int ThisTask, NTask;
+
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
+    size_t totalsize;
+
+    sizes[ThisTask] = localsize;
+
+    MPI_Datatype MPI_PTRDIFFT;
+
+    if(sizeof(ptrdiff_t) == sizeof(long)) {
+        MPI_PTRDIFFT = MPI_LONG;
+    } else if(sizeof(ptrdiff_t) == sizeof(int)) {
+        MPI_PTRDIFFT = MPI_INT;
+    } else { abort(); }
+
+    MPI_Allreduce(&sizes[ThisTask], &totalsize, 1, MPI_PTRDIFFT, MPI_SUM, comm);
+    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, sizes, 1, MPI_PTRDIFFT, comm);
+
+    int i;
+    *myoffset = 0;
+    for(i = 0; i < ThisTask; i ++) {
+        (*myoffset) += sizes[i];
+    }
+
+    return totalsize;
+}
+
+struct SegmentGroupDescr {
+    /* data model: rank <- segment <- group */
+    int Ngroup;
+    int Nsegments;
+    int GroupID; /* ID of the group of this rank */
+    int ThisSegment; /* SegmentID of the local data chunk on this rank*/
+
+    size_t totalsize;
+    int segment_start; /* segments responsible in this group */
+    int segment_end;
+
+    int is_leader;
+    MPI_Comm Group;  /* communicator for all ranks in the group */
+    MPI_Comm Leader; /* communicator for all ranks that are group leaders */
+    MPI_Comm Segment; /* communicator for all ranks in this segment */
+};
+
+static void
+_create_segment_group(struct SegmentGroupDescr * descr, size_t * sizes, size_t avgsegsize, int Ngroup, MPI_Comm comm)
+{
+    int i;
+    int ThisTask, NTask;
+
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
+    descr->ThisSegment = _assign_colors(avgsegsize, sizes, &descr->Nsegments, comm);
+
+    /* assign segments to groups.
+     * if Nsegments < Ngroup, some groups will have no segments, and thus no ranks belong to them. */
+    descr->GroupID = descr->ThisSegment * Ngroup / descr->Nsegments;
+
+    descr->Ngroup = Ngroup;
+
+    MPI_Comm_split(comm, descr->GroupID, ThisTask, &descr->Group);
+
+    MPI_Allreduce(&descr->ThisSegment, &descr->segment_start, 1, MPI_INT, MPI_MIN, descr->Group);
+    MPI_Allreduce(&descr->ThisSegment, &descr->segment_end, 1, MPI_INT, MPI_MAX, descr->Group);
+
+    descr->segment_end ++;
+
+    int rank;
+
+    MPI_Comm_rank(descr->Group, &rank);
+
+    descr->is_leader = rank == 0;
+    MPI_Comm_split(comm, rank == 0? 0 : 1, ThisTask, &descr->Leader);
+
+    MPI_Comm_split(descr->Group, descr->ThisSegment, ThisTask, &descr->Segment);
+    int rank2;
+
+    MPI_Comm_rank(descr->Segment, &rank2);
+
+}
+
+static void
+_destroy_segment_group(struct SegmentGroupDescr * descr)
+{
+
+    MPI_Comm_free(&descr->Segment);
+    MPI_Comm_free(&descr->Group);
+    MPI_Comm_free(&descr->Leader);
+}
+
 void mpsort_mpi_report_last_run() {
     struct TIMER * tmr = _TIMERS;
     double last = tmr->time;
@@ -146,91 +263,189 @@ mpsort_mpi (void * mybase, size_t mynmemb, size_t size,
         size, radix, rsize, arg, comm);
 }
 
-int
-mpsort_mpi_gather_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr);
-
-int
+static int
 mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr);
+
+static void *
+MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nrecv, size_t elsize, int * totalnsend);
+static void *
+MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv);
 
 void
 mpsort_mpi_newarray (void * mybase, size_t mynmemb, 
         void * myoutbase, size_t myoutnmemb,
-        size_t size,
+        size_t elsize,
         void (*radix)(const void * ptr, void * radix, void * arg),
         size_t rsize,
         void * arg,
         MPI_Comm comm)
 {
 
+    if(MPI_TYPE_PTRDIFF == 0) {
+        if(sizeof(ptrdiff_t) == sizeof(long long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
+        }
+        if(sizeof(ptrdiff_t) == sizeof(long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG;
+        }
+        if(sizeof(ptrdiff_t) == sizeof(int)) {
+            MPI_TYPE_PTRDIFF = MPI_INT;
+        }
+    }
+
     struct TIMER * tmr = _TIMERS;
 
-    struct crstruct d;
-    struct crmpistruct o;
+    struct SegmentGroupDescr seggrp[1];
 
-    _setup_radix_sort(&d, mybase, mynmemb, size, radix, rsize, arg);
-    _setup_mpsort_mpi(&o, &d, myoutbase, myoutnmemb, comm);
+    int NTask;
+    MPI_Comm_size(comm, &NTask);
+    size_t sizes[NTask];
+    size_t myoffset;
+    size_t totalsize = _collect_sizes(mynmemb, sizes, &myoffset, comm);
 
-    if(o.nmemb == 0) goto exec_empty_array;
-
-    if( mpsort_mpi_has_options(MPSORT_REQUIRE_GATHER_SORT) ||
-      (!mpsort_mpi_has_options(MPSORT_DISABLE_GATHER_SORT)
-        && o.nmemb <= o.NTask && d.size <= 32)) {
-        mpsort_mpi_gather_sort(d, o, tmr);
-    } else {
-        mpsort_mpi_histogram_sort(d, o, tmr);
+    size_t avgsegsize = NTask; /* combine very small ranks to segments */
+    if (avgsegsize * elsize > 4 * 1024 * 1024) {
+        /* do not use more than 4MB in a segment */
+        avgsegsize = 4 * 1024 * 1024 / elsize;
     }
-exec_empty_array:
-    _destroy_mpsort_mpi(&o);
+    if(mpsort_mpi_has_options(MPSORT_REQUIRE_GATHER_SORT)) {
+        avgsegsize = totalsize;
+    }
+
+    if(mpsort_mpi_has_options(MPSORT_DISABLE_GATHER_SORT)) {
+        avgsegsize = 0;
+    }
+
+    /* use as many groups as possible (some will be empty) but at most 1 segment per group */
+    _create_segment_group(seggrp, sizes, avgsegsize, NTask, comm);
+
+    /* group comm == seg comm */
+
+    void * mysegmentbase;
+    void * myoutsegmentbase;
+    size_t mysegmentnmemb;
+    size_t myoutsegmentnmemb;
+
+    int groupsize;
+    MPI_Comm_size(comm, &groupsize);
+    MPI_Allreduce(&mynmemb, &mysegmentnmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, seggrp->Group);
+    MPI_Allreduce(&myoutnmemb, &myoutsegmentnmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, seggrp->Group);
+
+    if (groupsize > 1) {
+        mysegmentbase = malloc(mysegmentnmemb * elsize);
+        myoutsegmentbase = malloc(myoutsegmentnmemb * elsize);
+        MPIU_Gather(seggrp->Group, 0, mybase, mysegmentbase, mynmemb, elsize, NULL);
+    } else {
+        mysegmentbase = mybase;
+        myoutsegmentbase = myoutbase;
+    }
+
+    /* only do sorting on the group leaders for each segment */
+    if(seggrp->is_leader) {
+
+        struct crstruct d;
+        struct crmpistruct o;
+
+        _setup_radix_sort(&d, mysegmentbase, mysegmentnmemb, elsize, radix, rsize, arg);
+
+        _setup_mpsort_mpi(&o, &d, myoutsegmentbase, myoutsegmentnmemb, seggrp->Leader);
+
+        mpsort_mpi_histogram_sort(d, o, tmr);
+
+        _destroy_mpsort_mpi(&o);
+    }
+
+    if(groupsize > 1) {
+        MPIU_Scatter(seggrp->Group, 0, myoutsegmentbase, myoutbase, myoutnmemb, elsize, NULL);
+    }
+
+    MPI_Bcast(tmr, sizeof(tmr), MPI_BYTE, 0, seggrp->Group);
+
+    if(mysegmentbase != mybase)
+        free(mysegmentbase);
+    if(myoutsegmentbase != myoutbase)
+        free(myoutsegmentbase);
 
 }
 
-
-int
-mpsort_mpi_gather_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr)
+static void *
+MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv)
 {
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
+    int NTask;
+    int ThisTask;
 
-    int recvcounts[o.NTask + 1];
-    int rdispls[o.NTask + 1];
-    int sendcounts[o.NTask + 1];
-    int sdispls[o.NTask + 1];
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
+    MPI_Datatype dtype;
+    MPI_Type_contiguous(elsize, MPI_BYTE, &dtype);
+    MPI_Type_commit(&dtype);
 
-    MPI_Gather(&o.mynmemb, 1, MPI_INT,
-                 recvcounts, 1, MPI_INT, 0, o.comm);
-
-    MPI_Gather(&o.myoutnmemb, 1, MPI_INT,
-                 sendcounts, 1, MPI_INT, 0, o.comm);
-
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "layout"), tmr++);
+    int recvcount[NTask];
+    int rdispls[NTask + 1];
+    int i;
+    MPI_Gather(&nsend, 1, MPI_INT, recvcount, 1, MPI_INT, root, comm);
 
     rdispls[0] = 0;
-    sdispls[0] = 0;
+    for(i = 1; i <= NTask; i ++) {
+        rdispls[i] = rdispls[i - 1] + recvcount[i - 1];
+    }
+
+    if(ThisTask == root) {
+        if(recvbuffer == NULL)
+            recvbuffer = malloc(rdispls[NTask] * elsize);
+        if(totalnrecv)
+            *totalnrecv = rdispls[NTask];
+    } else {
+        if(totalnrecv)
+            *totalnrecv = 0;
+    }
+
+    MPI_Gatherv(sendbuffer, nsend, dtype, recvbuffer, recvcount, rdispls, dtype, root, comm);
+
+    MPI_Type_free(&dtype);
+
+    return recvbuffer;
+}
+
+static void *
+MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nrecv, size_t elsize, int * totalnsend)
+{
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
+    MPI_Datatype dtype;
+    MPI_Type_contiguous(elsize, MPI_BYTE, &dtype);
+    MPI_Type_commit(&dtype);
+
+    int sendcount[NTask];
+    int sdispls[NTask + 1];
     int i;
-    for (i = 1; i < o.NTask; i++) {
-        rdispls[i] = rdispls[i - 1] + recvcounts[i - 1];
-        sdispls[i] = sdispls[i - 1] + sendcounts[i - 1];
+
+    MPI_Gather(&nrecv, 1, MPI_INT, sendcount, 1, MPI_INT, root, comm);
+
+    sdispls[0] = 0;
+    for(i = 1; i <= NTask; i ++) {
+        sdispls[i] = sdispls[i - 1] + sendcount[i - 1];
     }
 
-    void * buffer = malloc(d.size * o.nmemb);
+    if(recvbuffer == NULL)
+        recvbuffer = malloc(nrecv * elsize);
 
-    MPI_Gatherv(o.mybase, o.mynmemb, o.MPI_TYPE_DATA, buffer, recvcounts, rdispls, o.MPI_TYPE_DATA, 0, o.comm);
-
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Gather"), tmr++);
-    /* and sort the local array */
-    if (o.ThisTask == 0) {
-        radix_sort(buffer, o.nmemb, d.size, d.radix, d.rsize, d.arg);
+    if(ThisTask == root) {
+        if(totalnsend)
+            *totalnsend = sdispls[NTask];
+    } else {
+        if(totalnsend)
+            *totalnsend = 0;
     }
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LocalSort"), tmr++);
+    MPI_Scatterv(sendbuffer, sendcount, sdispls, dtype, recvbuffer, nrecv, dtype, root, comm);
 
-    MPI_Scatterv(buffer, sendcounts, sdispls, o.MPI_TYPE_DATA, o.myoutbase, o.myoutnmemb, o.MPI_TYPE_DATA, 0, o.comm);
+    MPI_Type_free(&dtype);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Scatter"), tmr++);
-
-    free(buffer);
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
-    return 0;
+    return recvbuffer;
 }
 
 int

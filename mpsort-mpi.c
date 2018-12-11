@@ -185,7 +185,6 @@ struct SegmentGroupDescr {
     int GroupID; /* ID of the group of this rank */
     int ThisSegment; /* SegmentID of the local data chunk on this rank*/
 
-    size_t totalsize;
     int segment_start; /* segments responsible in this group */
     int segment_end;
 

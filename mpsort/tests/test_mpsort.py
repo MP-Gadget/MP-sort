@@ -77,6 +77,22 @@ def test_sort_inplace(comm):
     s.sort()
     assert_array_equal(s, r)
 
+@MPITest(commsize=(4))
+def test_sort_mismatched_zeros(comm):
+    s = numpy.int32(numpy.random.random(size=1000) * 1000)
+
+    local = split(s, comm, [0, 400, 0, 600][comm.rank])
+    s = heal(local, comm)
+
+    res = split(s, comm, [200, 200, 0, 600][comm.rank])
+    res[:] = numpy.int32(numpy.random.random(size=res.size) * 1000)
+    mpsort.sort(local, local, out=res, comm=comm, tuning=['REQUIRE_GATHER_SORT'])
+
+    s.sort()
+
+    r = heal(res, comm)
+    assert_array_equal(s, r)
+
 @MPITest(commsize=(1, 2, 3, 4))
 def test_sort_outplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)

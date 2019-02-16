@@ -26,8 +26,47 @@ def adjustsize(size, comm):
     return ressize
 
 @MPITest(commsize=(1, 2, 3, 4))
-def test_sort(comm):
-    s = numpy.int32(numpy.random.random(size=1000) * 1000)
+def test_sort_i4(comm):
+    s = numpy.int32(numpy.random.random(size=1000) * 1000 - 400)
+
+    local = split(s, comm)
+    s = heal(local, comm)
+
+    mpsort.sort(local, orderby=None, out=None, comm=comm)
+
+    r = heal(local, comm)
+    s.sort()
+    assert_array_equal(s, r)
+
+@MPITest(commsize=(1, 2, 3, 4))
+def test_sort_i8(comm):
+    s = numpy.int64(numpy.random.random(size=1000) * 1000 - 400)
+
+    local = split(s, comm)
+    s = heal(local, comm)
+
+    mpsort.sort(local, orderby=None, out=None, comm=comm)
+
+    r = heal(local, comm)
+    s.sort()
+    assert_array_equal(s, r)
+
+@MPITest(commsize=(1, 2, 3, 4))
+def test_sort_u8(comm):
+    s = numpy.uint64(numpy.random.random(size=1000) * 1000 - 400)
+
+    local = split(s, comm)
+    s = heal(local, comm)
+
+    mpsort.sort(local, orderby=None, out=None, comm=comm)
+
+    r = heal(local, comm)
+    s.sort()
+    assert_array_equal(s, r)
+
+@MPITest(commsize=(1, 2, 3, 4))
+def test_sort_u4(comm):
+    s = numpy.uint32(numpy.random.random(size=1000) * 1000 - 400)
 
     local = split(s, comm)
     s = heal(local, comm)
@@ -127,13 +166,16 @@ def test_sort_flatiter(comm):
 
 @MPITest(commsize=(1, 2, 3, 4))
 def test_sort_struct(comm):
-    s = numpy.empty(1000, dtype=[
+    s = numpy.empty(10, dtype=[
         ('value', 'i8'),
         ('key', 'i8')])
 
-    s['value'] = numpy.int32(numpy.random.random(size=1000) * 1000)
+    numpy.random.seed(1234)
+
+    s['value'] = numpy.int32(numpy.random.random(size=10) * 1000-400)
     s['key'] = s['value']
 
+    backup = s.copy()
     local = split(s, comm)
     s = heal(local, comm)
 
@@ -143,8 +185,8 @@ def test_sort_struct(comm):
 
     r = heal(res, comm)
 
-    s.sort(order='key')
-    assert_array_equal(s['value'], r['value'])
+    backup.sort(order='key')
+    assert_array_equal(backup['value'], r['value'])
 
 @MPITest(commsize=(1, 2, 3, 4))
 def test_sort_struct_vector(comm):

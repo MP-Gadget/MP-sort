@@ -412,6 +412,8 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
         if(myoutsegmentbase != myoutbase)
             free(myoutsegmentbase);
     }
+
+    _destroy_segment_group(seggrp);
 }
 
 static void *

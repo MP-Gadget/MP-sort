@@ -988,7 +988,7 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
 
     int dense;
 
-    if(mpsort_mpi_has_options(MPSORT_ENABLE_SPARSE_ALLTOALLV)
+    if(mpsort_mpi_has_options(MPSORT_DISABLE_SPARSE_ALLTOALLV)
     ) {
         dense = 1;
     } else {
@@ -1106,8 +1106,8 @@ static void _mpsort_mpi_parse_env()
     if(_mpsort_env_parsed) return;
 
     _mpsort_env_parsed = 1;
-    if(getenv("MPSORT_ENABLE_SPARSE_ALLTOALLV"))
-        mpsort_mpi_set_options(MPSORT_ENABLE_SPARSE_ALLTOALLV);
+    if(getenv("MPSORT_DISABLE_SPARSE_ALLTOALLV"))
+        mpsort_mpi_set_options(MPSORT_DISABLE_SPARSE_ALLTOALLV);
     if(getenv("MPSORT_DISABLE_IALLREDUCE"))
         mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE);
     if(getenv("MPSORT_DISABLE_GATHER_SORT"))

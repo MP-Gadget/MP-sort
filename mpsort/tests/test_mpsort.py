@@ -79,7 +79,7 @@ def test_sort_u4(comm):
 
 TUNINGS = [
     [],
-    ['ENABLE_SPARSE_ALLTOALLV'],
+    ['DISABLE_SPARSE_ALLTOALLV'],
     ['REQUIRE_SPARSE_ALLTOALLV'],
     ['REQUIRE_GATHER_SORT'],
     ['DISABLE_GATHER_SORT'],

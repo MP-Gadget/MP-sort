@@ -12,7 +12,7 @@ cdef extern from "radixsort.c":
     pass
 
 cdef extern from "mpsort-mpi.c":
-    int MPSORT_ENABLE_SPARSE_ALLTOALLV
+    int MPSORT_DISABLE_SPARSE_ALLTOALLV
     int MPSORT_DISABLE_IALLREDUCE
     int MPSORT_DISABLE_GATHER_SORT
     int MPSORT_REQUIRE_GATHER_SORT
@@ -131,7 +131,7 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
             the communicaotr, None for COMM_WORLD
 
         tuning: list of strings
-            'ENABLE_SPARSE_ALLTOALLV'
+            'DISABLE_SPARSE_ALLTOALLV'
             'DISABLE_IALLREDUCE'
             'DISABLE_GATHER_SORT'
             'REQUIRE_GATHER_SORT'
@@ -181,8 +181,8 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
 
     mpsort_mpi_unset_options(-1)
 
-    if 'ENABLE_SPARSE_ALLTOALLV' in tuning:
-        mpsort_mpi_set_options(MPSORT_ENABLE_SPARSE_ALLTOALLV)
+    if 'DISABLE_SPARSE_ALLTOALLV' in tuning:
+        mpsort_mpi_set_options(MPSORT_DISABLE_SPARSE_ALLTOALLV)
     if 'DISABLE_IALLREDUCE' in tuning:
         mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE)
     if 'DISABLE_GATHER_SORT' in tuning:

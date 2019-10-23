@@ -1,6 +1,7 @@
 CC?=cc
 MPICC?=mpicc
 PREFIX=/usr
+CFLAGS?=-g -Wall
 
 all: libradixsort.a libmpsort-mpi.a
 
@@ -16,24 +17,24 @@ clean:
 tests: main main-mpi bench-mpi
 
 main: main.c libmpsort-omp.a libradixsort.a
-	$(CC) -o main $^
+	$(CC) $(CFLAGS) -o main $^
 main-mpi: main-mpi.c libmpsort-mpi.a libradixsort.a
-	$(MPICC) -o main-mpi $^
+	$(MPICC) $(CFLAGS) -o main-mpi $^
 bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a
-	$(MPICC) -o bench-mpi $^
+	$(MPICC) $(CFLAGS) -o bench-mpi $^
 
 libradixsort.a: radixsort.c
-	$(CC) -c -o radixsort.o radixsort.c
+	$(CC) $(CFLAGS) -c -o radixsort.o radixsort.c
 	ar r libradixsort.a radixsort.o
 	ranlib libradixsort.a
 
 libmpsort-omp.a: mpsort-omp.c
-	$(CC) -c -o mpsort-omp.o mpsort-omp.c
+	$(CC) $(CFLAGS) -c -o mpsort-omp.o mpsort-omp.c
 	ar r libmpsort-omp.a mpsort-omp.o
 	ranlib libmpsort-omp.a
 
 libmpsort-mpi.a: mpsort-mpi.c
-	$(MPICC) -c -o mpsort-mpi.o mpsort-mpi.c
+	$(MPICC) $(CFLAGS) -c -o mpsort-mpi.o mpsort-mpi.c
 	ar r libmpsort-mpi.a mpsort-mpi.o
 	ranlib libmpsort-mpi.a
 

@@ -126,7 +126,6 @@ static void _histogram(char * P, int Plength, void * mybase, size_t mynmemb,
     }
 }
 
-#if 0
 /* 
  * solve for the communication layout based on
  *
@@ -217,7 +216,6 @@ static void _solve_for_layout (
 #endif
 
 }
-#endif
 
 struct piter {
     int * stable;

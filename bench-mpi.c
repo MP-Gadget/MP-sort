@@ -83,8 +83,8 @@ check_sorted(int64_t * data, size_t localsize, MPI_Comm comm)
             MPI_Send(&prev, 1, MPI_LONG, ThisTask + 1, TAG, comm);
             break;
         }
-        /* else */
-        { 
+        else
+        {
             MPI_Sendrecv(
                     &data[localsize - 1], 1, MPI_LONG, 
                     ThisTask + 1, TAG, 
@@ -98,7 +98,7 @@ check_sorted(int64_t * data, size_t localsize, MPI_Comm comm)
         if(localsize > 0) {
 //                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
             if(prev > data[0]) {
-                fprintf(stderr, "global ordering fail\n");
+                fprintf(stderr, "Task %d global ordering fail: %ld > %ld\n", ThisTask, prev, data[0]);
                 MPI_Abort(comm, -1);
             }
         }

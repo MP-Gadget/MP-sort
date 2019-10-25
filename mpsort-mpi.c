@@ -118,7 +118,7 @@ _assign_colors(size_t glocalsize, size_t * sizes, size_t * outsizes, int * ncolo
     MPI_Comm_size(comm, &NTask);
 
     int i;
-    int mycolor;
+    int mycolor = -1;
     size_t current_size = 0;
     size_t current_outsize = 0;
     int current_color = 0;
@@ -195,7 +195,6 @@ struct SegmentGroupDescr {
 static void
 _create_segment_group(struct SegmentGroupDescr * descr, size_t * sizes, size_t * outsizes, size_t avgsegsize, int Ngroup, MPI_Comm comm)
 {
-    int i;
     int ThisTask, NTask;
 
     MPI_Comm_size(comm, &NTask);
@@ -347,9 +346,7 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
     size_t sizes[NTask];
     size_t outsizes[NTask];
     size_t myoffset;
-    size_t myoutoffset;
     size_t totalsize = _collect_sizes(mynmemb, sizes, &myoffset, comm);
-    size_t totaloutsize = _collect_sizes(myoutnmemb, outsizes, &myoutoffset, comm);
 
     size_t avgsegsize = NTask; /* combine very small ranks to segments */
     if (avgsegsize * elsize > 4 * 1024 * 1024) {

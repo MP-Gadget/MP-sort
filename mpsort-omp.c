@@ -121,10 +121,100 @@ static void _reduce_sum(ptrdiff_t * send, ptrdiff_t * recv, size_t count) {
 }
 static void _gather(void * sendbuf, int sendcount1, void * recvbuf, size_t itemsize) {
     int ThisTask = omp_get_thread_num();
-    ptrdiff_t i;
     memcpy((char*) recvbuf + ThisTask * sendcount1 * itemsize, 
             sendbuf, sendcount1 * itemsize);
 #pragma omp barrier
+}
+
+/* 
+ * solve for the communication layout based on
+ *
+ * C: the desired number of items per task
+ * GL_CLT[t,i+1]: the offset of lt P[i] in task t 
+ * GL_CLE[t,i+1]: the offset of le P[i] in task t
+ * 
+ * the result is saved in
+ *
+ * GL_C[t, i]: the offset of sending to task i in task t.
+ *
+ * this routine requires GL_ to scale with NTask * NTask;
+ * won't work with 1,000 + ranks.
+ * */
+static void _solve_for_layout (
+        int NTask, 
+        ptrdiff_t * C,
+        ptrdiff_t * GL_CLT, 
+        ptrdiff_t * GL_CLE, 
+        ptrdiff_t * GL_C) {
+    int NTask1 = NTask + 1;
+    int i, j;
+    /* first assume we just send according to GL_CLT */
+    for(i = 0; i < NTask + 1; i ++) {
+        for(j = 0; j < NTask; j ++) {
+            GL_C[j * NTask1 + i] = GL_CLT[j * NTask1 + i];
+        }
+    }
+
+    /* Solve for each receiving task i 
+     *
+     * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
+     *
+     * and we have GL_C[..., 0] == 0 by definition.
+     *
+     * this cannot be done in parallel wrt i because of the dependency. 
+     *
+     *  a solution is guaranteed because GL_CLE and GL_CLT
+     *  brackes the total counts C (we've found it with the
+     *  iterative counting.
+     *
+     * */
+
+    for(i = 0; i < NTask; i ++) {
+        ptrdiff_t sure = 0;
+
+        /* how many will I surely receive? */
+        for(j = 0; j < NTask; j ++) {
+            ptrdiff_t sendcount = GL_C[j * NTask1 + i + 1] - GL_C[j * NTask1 + i];
+            sure += sendcount;
+        }
+        /* let's see if we have enough */
+        ptrdiff_t deficit = C[i + 1] - C[i] - sure;
+
+        for(j = 0; j < NTask; j ++) {
+            /* deficit solved */
+            if(deficit == 0) break;
+            if(deficit < 0) {
+                fprintf(stderr, "serious bug: more items than there should be: deficit=%ld\n", deficit);
+                abort();
+            }
+            /* how much task j can supply ? */
+            ptrdiff_t supply = GL_CLE[j * NTask1 + i + 1] - GL_C[j * NTask1 + i + 1];
+            if(supply < 0) {
+                fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
+                abort();
+            }
+            if(supply <= deficit) {
+                GL_C[j * NTask1 + i + 1] += supply;
+                deficit -= supply;
+            } else {
+                GL_C[j * NTask1 + i + 1] += deficit;
+                deficit = 0;
+            }
+        }
+    }
+
+#if 0
+    for(i = 0; i < NTask; i ++) {
+        for(j = 0; j < NTask + 1; j ++) {
+            printf("%d %d %d, ", 
+                    GL_CLT[i * NTask1 + j], 
+                    GL_C[i * NTask1 + j], 
+                    GL_CLE[i * NTask1 + j]);
+        }
+        printf("\n");
+    }
+#endif
+
 }
 
 static void mpsort_omp_single(void * base, size_t nmemb, 

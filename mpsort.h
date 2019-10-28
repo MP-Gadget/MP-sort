@@ -48,4 +48,10 @@ void mpsort_mpi_newarray_impl(void * base, size_t nmemb,
     radix, rsize, arg, comm, __LINE__, __FILE__)
 
 void mpsort_mpi_report_last_run();
+
+#ifdef __INTEL_COMPILER
+#warning MPSORT: detected an Intel Compiler.
+#warning MPSORT: As of Oct 27 2019, icc frequently produces buggier code than gcc when interfacing with MPI and multithreading.
+#warning MPSORT: If your application misbehaves, consider recompiling fresh with gcc to rule out compiler bugs.
+#endif
 #endif

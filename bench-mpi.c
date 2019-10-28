@@ -10,7 +10,7 @@
 #include "mpsort.h"
 
 static void radix_int(const void * ptr, void * radix, void * arg) {
-    *(int64_t*)radix = *(const int64_t*) ptr + INT64_MIN;
+    *(uint64_t*)radix = *(const int64_t*) ptr + INT64_MIN;
 }
 static int64_t
 checksum(int64_t * data, size_t localsize, MPI_Comm comm)

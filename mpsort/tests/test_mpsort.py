@@ -1,7 +1,8 @@
 import mpsort
-from runtests.mpi import MPITest
+from runtests.mpi import MPITest, MPITestFixture
 import numpy
 from numpy.testing import assert_array_equal
+from itertools import product
 import pytest
 
 def split(array, comm, localsize=None):
@@ -86,20 +87,20 @@ TUNINGS = [
     ['DISABLE_IALLREDUCE'],
 ]
 
-@MPITest(commsize=(1, 2, 3, 4))
-def test_sort_tunings(comm):
-    for tuning in TUNINGS:
-        s = numpy.int32(numpy.random.random(size=1000) * 1000)
+comm = MPITestFixture([1, 2, 3, 4], scope='function')
+@pytest.mark.parametrize("tuning", TUNINGS)
+def test_sort_tunings(comm, tuning):
+    s = numpy.int32(numpy.random.random(size=1000) * 1000)
 
-        local = split(s, comm)
-        s = heal(local, comm)
+    local = split(s, comm)
+    s = heal(local, comm)
 
-        g = comm.allgather(local.size)
-        mpsort.sort(local, orderby=None, out=None, comm=comm, tuning=tuning)
+    g = comm.allgather(local.size)
+    mpsort.sort(local, orderby=None, out=None, comm=comm, tuning=tuning)
 
-        r = heal(local, comm)
-        s.sort()
-        assert_array_equal(s, r)
+    r = heal(local, comm)
+    s.sort()
+    assert_array_equal(s, r)
 
 
 @MPITest(commsize=(1, 2, 3, 4))
@@ -299,3 +300,34 @@ def test_histogram_empty(comm):
     mpsort.histogram([], [1], comm)
     # no error shall be raised
 
+@pytest.mark.parametrize("tuning", TUNINGS)
+def test_empty_sort(comm, tuning):
+    s = numpy.empty(0, dtype=[
+        ('vkey', ('u8', 3)),
+        ('vector', ('u4', 3)),
+    ])
+
+    mpsort.sort(s, 'vkey', out=s, comm=comm, tuning=tuning)
+
+
+comm4 = MPITestFixture([4], scope='function')
+@pytest.mark.parametrize("sizes, tuning",
+   product(product(*([[0, 1, 2]] * 4)), TUNINGS))
+def test_few_items(comm4, sizes, tuning):
+    comm = comm4
+    A = [range(sizes[i]) for i in range(len(sizes)) ]
+    s = numpy.empty(len(A[comm.rank]), dtype=[
+        ('vkey', ('u8', 3)),
+        ('vector', ('u4', 3)),
+    ])
+
+    s['vkey'] = numpy.array(A[comm.rank], dtype='u8')[:, None]
+    s['vector'] = 1
+    S = numpy.concatenate(comm.allgather(s))
+    S.sort()
+    r = numpy.empty(len(A[comm.rank]), dtype=s.dtype)
+    mpsort.sort(s, 'vkey', out=r, comm=comm, tuning=tuning)
+    R = numpy.concatenate(comm.allgather(r))
+    comm.barrier()
+    assert_array_equal(R['vkey'], S['vkey'])
+    comm.barrier()

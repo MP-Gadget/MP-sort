@@ -33,6 +33,7 @@ install:
 
 script:
     - pip install runtests
+    - export CFLAGS="${CFLAGS} -Wall"
     - python runtests.py --mpirun="mpirun -n 4"
     - bash check_tag.sh mpsort/version.py
 

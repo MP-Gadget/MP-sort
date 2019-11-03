@@ -72,7 +72,7 @@ _setup_mpsort_mpi(struct crmpistruct * o,
 
     if(o->outnmemb != o->nmemb) {
         if(o->ThisTask == 0) {
-            fprintf(stderr, "MPSort: total number of items in the item does not match the input %ld != %ld. ",
+            fprintf(stderr, "MPSort: total number of items in the item does not match the input %ld != %ld. "
                             "Caller site: %s:%d\n",
                             o->outnmemb, o->nmemb, file, line);
             MPI_Abort(comm, -1);
@@ -374,7 +374,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if(elsize > 8 && elsize % 8 != 0) {
         if(ThisTask == 0) {
-            fprintf(stderr, "MPSort: element size is large (%d) but not aligned to 8 bytes. "
+            fprintf(stderr, "MPSort: element size is large (%ld) but not aligned to 8 bytes. "
                             "This is known to frequently trigger MPI bugs. "
                             "Caller site: %s:%d\n",
                             elsize, file, line);
@@ -382,7 +382,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
     }
     if(rsize > 8 && rsize % 8 != 0) {
         if(ThisTask == 0) {
-            fprintf(stderr, "MPSort: radix size is large (%d) but not aligned to 8 bytes. "
+            fprintf(stderr, "MPSort: radix size is large (%ld) but not aligned to 8 bytes. "
                             "This is known to frequently trigger MPI bugs. "
                             "Caller site: %s:%d\n",
                             rsize, file, line);

@@ -95,7 +95,7 @@ static ptrdiff_t _bsearch_last_le(void * P,
  * myCLT[Plength + 1] is always mynmemb
  *
  * */
-static void _histogram(char * P, int Plength, void * mybase, size_t mynmemb, 
+static void _histogram(unsigned char * P, int Plength, void * mybase, size_t mynmemb, 
         ptrdiff_t * myCLT, ptrdiff_t * myCLE,
         struct crstruct * d) {
     int it;

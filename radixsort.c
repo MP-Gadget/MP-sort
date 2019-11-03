@@ -36,7 +36,7 @@ void radix_sort(void * base, size_t nmemb, size_t size,
 /* implementation ; internal */
 int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
     struct crstruct * d = arg;
-    char r1[d->rsize], r2[d->rsize];
+    unsigned char r1[d->rsize], r2[d->rsize];
     d->radix(p1, r1, d->arg);
     d->radix(p2, r2, d->arg);
     int c1 = d->compar(r1, r2, d->rsize);
@@ -85,8 +85,8 @@ static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int 
     const uint64_t * u1 = r1;
     const uint64_t * u2 = r2;
     if(dir < 0) {
-        u1 = (const uint64_t *) ((const char*) u1 + rsize - 8);
-        u2 = (const uint64_t *) ((const char*) u2 + rsize - 8);
+        u1 = (const uint64_t *) ((const unsigned char*) u1 + rsize - 8);
+        u2 = (const uint64_t *) ((const unsigned char*) u2 + rsize - 8);
     }
     for(i = 0; i < rsize; i += 8) {
         if(*u1 < *u2) return -1;

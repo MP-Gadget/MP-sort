@@ -12,7 +12,7 @@ static ptrdiff_t _bsearch_last_lt(void * P,
 
     if (nmemb == 0) return -1;
 
-    char tmpradix[d->rsize];
+    unsigned char tmpradix[d->rsize];
     ptrdiff_t left = 0;
     ptrdiff_t right = nmemb - 1;
 
@@ -53,7 +53,7 @@ static ptrdiff_t _bsearch_last_le(void * P,
 
     if (nmemb == 0) return -1;
 
-    char tmpradix[d->rsize];
+    unsigned char tmpradix[d->rsize];
     ptrdiff_t left = 0;
     ptrdiff_t right = nmemb - 1;
 
@@ -130,12 +130,12 @@ struct piter {
     int * stable;
     int * narrow;
     int Plength;
-    char * Pleft;
-    char * Pright;
+    unsigned char * Pleft;
+    unsigned char * Pright;
     struct crstruct * d;
 };
 static void piter_init(struct piter * pi, 
-        char * Pmin, char * Pmax, int Plength,
+        unsigned char * Pmin, unsigned char * Pmax, int Plength,
         struct crstruct * d) {
     pi->stable = calloc(Plength, sizeof(int));
     pi->narrow = calloc(Plength, sizeof(int));
@@ -164,7 +164,7 @@ static void piter_destroy(struct piter * pi) {
  * the additional 'right]'. (usual bisect range is 
  * '[left, right)' )
  * */
-static void piter_bisect(struct piter * pi, char * P) {
+static void piter_bisect(struct piter * pi, unsigned char * P) {
     struct crstruct * d = pi->d;
     int i;
     for(i = 0; i < pi->Plength; i ++) {
@@ -220,7 +220,7 @@ static int piter_all_done(struct piter * pi) {
  * test if the counts satisfies CLT < C <= CLE.
  * move Pleft / Pright accordingly.
  * */
-static void piter_accept(struct piter * pi, char * P, 
+static void piter_accept(struct piter * pi, unsigned char * P, 
         ptrdiff_t * C, ptrdiff_t * CLT, ptrdiff_t * CLE) {
     struct crstruct * d = pi->d;
     int i;

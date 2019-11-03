@@ -91,9 +91,9 @@ static void _destroy_mpsort_mpi(struct crmpistruct * o) {
     MPI_Type_free(&o->MPI_TYPE_DATA);
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, size_t nmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin, 
+        unsigned char * Pmax, unsigned char * Pmin, 
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o);
@@ -578,10 +578,10 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         const int line, const char * file)
 {
 
-    char Pmax[d.rsize];
-    char Pmin[d.rsize];
+    unsigned char Pmax[d.rsize];
+    unsigned char Pmin[d.rsize];
 
-    char P[d.rsize * (o.NTask - 1)];
+    unsigned char P[d.rsize * (o.NTask - 1)];
 
     ptrdiff_t C[o.NTask + 1];  /* desired counts */
 
@@ -615,7 +615,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
 
-    _find_Pmax_Pmin_C(o.mybase, o.mynmemb, o.myoutnmemb, Pmax, Pmin, C, &d, &o);
+    _find_Pmax_Pmin_C(o.mybase, o.mynmemb, o.nmemb, o.myoutnmemb, Pmax, Pmin, C, &d, &o);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "PmaxPmin"), tmr++);
 
@@ -868,22 +868,23 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     return 0;
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
+        size_t nmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin, 
+        unsigned char * Pmax, unsigned char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o) {
     memset(Pmax, 0, d->rsize);
     memset(Pmin, -1, d->rsize);
 
-    char myPmax[d->rsize];
-    char myPmin[d->rsize];
+    unsigned char myPmax[d->rsize];
+    unsigned char myPmin[d->rsize];
 
     size_t eachnmemb[o->NTask];
     size_t eachoutnmemb[o->NTask];
-    char eachPmax[d->rsize * o->NTask];
-    char eachPmin[d->rsize * o->NTask];
+    unsigned char eachPmax[d->rsize * o->NTask];
+    unsigned char eachPmin[d->rsize * o->NTask];
     int i;
 
     if(mynmemb > 0) {
@@ -907,6 +908,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     C[0] = 0;
     for(i = 0; i < o->NTask; i ++) {
         C[i + 1] = C[i] + eachoutnmemb[i];
+        /* skip the rank, since it has no data to contribute to the reduction */
         if(eachnmemb[i] == 0) continue;
 
         if(d->compar(eachPmax + i * d->rsize, Pmax, d->rsize) > 0) {
@@ -915,6 +917,11 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         if(d->compar(eachPmin + i * d->rsize, Pmin, d->rsize) < 0) {
             memcpy(Pmin, eachPmin + i * d->rsize, d->rsize);
         }
+    }
+    /* no rank contributed to the reduction, set min, max to a sane value, 0 */
+    if(nmemb == 0) {
+        memset(Pmin, 0, d->rsize);
+        memset(Pmax, 0, d->rsize);
     }
 }
 

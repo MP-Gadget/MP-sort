@@ -22,6 +22,8 @@ main-mpi: main-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o main-mpi $^
 bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o bench-mpi $^
+test-issue7: test-issue7.c libmpsort-mpi.a libradixsort.a
+	$(MPICC) $(CFLAGS) -o test-issue7 $^
 
 libradixsort.a: radixsort.c
 	$(CC) $(CFLAGS) -c -o radixsort.o radixsort.c

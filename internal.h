@@ -22,7 +22,6 @@ struct crstruct {
     _bisect_fn_t bisect;
 };
 
-int _compute_and_compar_radix(const void * p1, const void * p2, void * arg);
 void _setup_radix_sort(
         struct crstruct *d,
         void * base,

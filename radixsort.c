@@ -15,6 +15,17 @@
 #include "stdlib/msort.c"
 
 
+/* implementation ; internal */
+static int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
+    struct crstruct * d = arg;
+    unsigned char r1[d->rsize], r2[d->rsize];
+    d->radix(p1, r1, d->arg);
+    d->radix(p2, r2, d->arg);
+    int c1 = d->compar(r1, r2, d->rsize);
+    return c1;
+}
+
+
 /****
  * sort by radix;
  * internally this uses qsort_r of glibc.
@@ -30,17 +41,6 @@ void radix_sort(void * base, size_t nmemb, size_t size,
     _setup_radix_sort(&d, base, nmemb, size, radix, rsize, arg);
 
     mpsort_qsort_r(d.base, d.nmemb, d.size, _compute_and_compar_radix, &d);
-}
-
-
-/* implementation ; internal */
-int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
-    struct crstruct * d = arg;
-    unsigned char r1[d->rsize], r2[d->rsize];
-    d->radix(p1, r1, d->arg);
-    d->radix(p2, r2, d->arg);
-    int c1 = d->compar(r1, r2, d->rsize);
-    return c1;
 }
 
 

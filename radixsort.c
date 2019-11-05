@@ -48,14 +48,14 @@ int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
 static int _compar_radix_ ## type ( \
         const type * u1,  \
         const type * u2,  \
-        void * junk) { \
+        size_t junk) { \
     return (signed) (*u1 > *u2) - (signed) (*u1 < *u2); \
 } \
 static void _bisect_radix_ ## type ( \
         type * u, \
         const type * u1,  \
         const type * u2,  \
-        void * junk) { \
+        size_t junk) { \
     *u = *u1 + ((*u2 - *u1) >> 1); \
 }
 DEFTYPE(uint16_t)

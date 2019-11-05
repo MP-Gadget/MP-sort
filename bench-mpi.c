@@ -126,24 +126,12 @@ int main(int argc, char * argv[]) {
     int staggered = 0;
     int bits=64;
 
-    while(-1 != (opt = getopt(argc, argv, "IiSsGgb:"))) {
+    while(-1 != (opt = getopt(argc, argv, "SsGgb:"))) {
         switch(opt) {
             case 'b':
                 bits = atoi(optarg);
                 if(ThisTask == 0) {
                     printf("Bit width = %d\n", bits);
-                }
-                break;
-            case 'i':
-                mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE);
-                if(ThisTask == 0) {
-                    printf("DISABLE_IALLREDUCE\n");
-                }
-                break;
-            case 'I':
-                /* default */
-                if(ThisTask == 0) {
-                    printf("REQUIRE_IALLREDUCE\n");
                 }
                 break;
             case 'g':

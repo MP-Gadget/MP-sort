@@ -13,9 +13,9 @@
 
 struct crompstruct {
     struct piter pi;
-    char * P;
-    char * Pmax;
-    char * Pmin;
+    unsigned char * P;
+    unsigned char * Pmax;
+    unsigned char * Pmin;
     ptrdiff_t * C; /* expected counts */
     ptrdiff_t * CLT; /* counts of less than P */
     ptrdiff_t * CLE; /* counts of less than or equal to P */
@@ -249,8 +249,8 @@ static void mpsort_omp_single(void * base, size_t nmemb,
 
     /* find the max radix and min radix of all */
     if(mynmemb > 0) {
-        char myPmax[d->rsize];
-        char myPmin[d->rsize];
+        unsigned char myPmax[d->rsize];
+        unsigned char myPmin[d->rsize];
         d->radix(mybase + (mynmemb - 1) * d->size, myPmax, d->arg);
         d->radix(mybase, myPmin, d->arg);
 #pragma omp critical

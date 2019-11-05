@@ -114,6 +114,10 @@ static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsi
     const unsigned char * u2 = r2;
     unsigned char * u = r;
     unsigned int carry = 0;
+    if(dir > 0) {
+        u1 += rsize - 1;
+        u2 += rsize - 1;
+    }
     /* from most least significant */
     for(i = 0; i < rsize; i ++) {
         unsigned int tmp = (unsigned int) *u2 + *u1 + carry;

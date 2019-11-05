@@ -1,4 +1,4 @@
-/* The following two functions are taken from MP-Gadget. The hope 
+/* The following two functions are taken from MP-Gadget. The hope
  * is that when the exchange is sparse posting requests is
  * faster than Alltoall on some implementations. */
 
@@ -8,8 +8,8 @@ static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
-/* 
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+/*
  * sdispls, recvcnts rdispls can be NULL,
  *
  * if recvbuf is NULL, returns total number of item required to hold the
@@ -77,11 +77,11 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     int ret;
     if(dense != 0) {
         ret = MPI_Alltoallv(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
     } else {
         ret = MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
     }
 
@@ -127,7 +127,7 @@ static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         if(target >= NTask) continue;
         if(recvcnts[target] == 0) continue;
         MPI_Irecv(
-                ((char*) recvbuf) + recv_elsize * rdispls[target], 
+                ((char*) recvbuf) + recv_elsize * rdispls[target],
                 recvcnts[target],
                 recvtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -144,7 +144,7 @@ static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         int target = ThisTask ^ ngrp;
         if(target >= NTask) continue;
         if(sendcnts[target] == 0) continue;
-        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
+        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target],
                 sendcnts[target],
                 sendtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -158,12 +158,12 @@ static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
         if(target >= NTask) continue;
         if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target], sendtype, 
+        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target],
+                sendcnts[target], sendtype,
                 target, 101934,
                 ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype, 
-                target, 101934, 
+                recvcnts[target], recvtype,
+                target, 101934,
                 comm, MPI_STATUS_IGNORE);
 
     }

@@ -8,9 +8,9 @@
 #include "internal.h"
 
 /*****
- * msort.c is stripped from glibc git. 
+ * msort.c is stripped from glibc git.
  * qsort_r is not available till 2.8 but
- * most systems has older glibc 
+ * most systems has older glibc
  * ****/
 #include "stdlib/msort.c"
 
@@ -32,9 +32,9 @@ static int _compute_and_compar_radix(const void * p1, const void * p2, void * ar
  *
  **** */
 
-void radix_sort(void * base, size_t nmemb, size_t size, 
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
+void radix_sort(void * base, size_t nmemb, size_t size,
+        void (*radix)(const void * ptr, void * radix, void * arg),
+        size_t rsize,
         void * arg) {
 
     struct crstruct d;
@@ -148,8 +148,8 @@ void _setup_radix_sort(
         void * base,
         size_t nmemb,
         size_t size,
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
+        void (*radix)(const void * ptr, void * radix, void * arg),
+        size_t rsize,
         void * arg) {
     const char deadbeef[] = "deadbeef";
     const uint32_t * ideadbeef = (uint32_t *) deadbeef;

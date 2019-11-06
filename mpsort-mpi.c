@@ -347,14 +347,18 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 {
 
     if(MPI_TYPE_PTRDIFF == 0) {
-        if(sizeof(ptrdiff_t) == sizeof(long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG;
-        }
-        if(sizeof(ptrdiff_t) == sizeof(long long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
-        }
         if(sizeof(ptrdiff_t) == sizeof(int)) {
             MPI_TYPE_PTRDIFF = MPI_INT;
+        }
+        else if(sizeof(ptrdiff_t) == sizeof(long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG;
+        }
+        else if(sizeof(ptrdiff_t) == sizeof(long long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
+        }
+        else {
+            fprintf(stderr, "MPSort: sizeof(ptrdiff) = %lu, not recognised\n", sizeof(ptrdiff_t));
+            MPI_Abort(comm, -1);
         }
     }
 

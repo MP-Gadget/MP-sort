@@ -63,7 +63,7 @@ DEFTYPE(uint32_t)
 DEFTYPE(uint64_t)
 
 static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     /* from most significant */
     const unsigned char * u1 = r1;
     const unsigned char * u2 = r2;
@@ -80,7 +80,7 @@ static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir
     return 0;
 }
 static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     /* from most significant */
     const uint64_t * u1 = r1;
     const uint64_t * u2 = r2;
@@ -109,7 +109,7 @@ static int _compar_radix_be_u8(const void * r1, const void * r2, size_t rsize) {
     return _compar_radix_u8(r1, r2, rsize, +1);
 }
 static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     const unsigned char * u1 = r1;
     const unsigned char * u2 = r2;
     unsigned char * u = r;

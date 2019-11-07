@@ -322,7 +322,7 @@ static void *
 MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv);
 
 static uint64_t
-checksum(void * base, size_t nbytes, MPI_Comm comm)
+checksum(void * base, ptrdiff_t nbytes, MPI_Comm comm)
 {
     uint64_t sum = 0;
     char * ptr = base;

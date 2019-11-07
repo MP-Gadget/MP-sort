@@ -202,7 +202,7 @@ MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
     ptrdiff_t elsize;
     MPI_Type_get_extent(type, &lb, &elsize);
 
-    void * tmp = malloc(elsize);
+    void * tmp = ta_malloc("tmp", char, elsize);
     /* find the result of the reduction. */
     MPI_Allreduce(base, tmp, 1, type, op, comm);
 
@@ -220,7 +220,7 @@ MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
      * a crazy MPI impl...
      * */
     MPI_Allreduce(&rank, &ret, 1, MPI_INT, MPI_MIN, comm);
-    free(tmp);
+    myfree(tmp);
     return ret;
 }
 
@@ -439,8 +439,8 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if (groupsize > 1) {
         if(grouprank == seggrp->group_leader_rank) {
-            mysegmentbase = malloc(mysegmentnmemb * elsize);
-            myoutsegmentbase = malloc(myoutsegmentnmemb * elsize);
+            mysegmentbase = mymalloc("mysegment", mysegmentnmemb * elsize);
+            myoutsegmentbase = mymalloc("outsegment", myoutsegmentnmemb * elsize);
         }
         MPIU_Gather(seggrp->Group, seggrp->group_leader_rank, mybase, mysegmentbase, mynmemb, elsize, NULL);
     } else {
@@ -478,9 +478,9 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if(grouprank == seggrp->group_leader_rank) {
         if(mysegmentbase != mybase)
-            free(mysegmentbase);
+            myfree(mysegmentbase);
         if(myoutsegmentbase != myoutbase)
-            free(myoutsegmentbase);
+            myfree(myoutsegmentbase);
     }
 
     _destroy_segment_group(seggrp);

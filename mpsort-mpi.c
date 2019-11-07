@@ -813,7 +813,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     }
 #endif
     if(o.myoutbase == o.mybase)
-        buffer = malloc(d.size * o.myoutnmemb);
+        buffer = mymalloc("buffer", d.size * o.myoutnmemb);
     else
         buffer = o.myoutbase;
 
@@ -824,7 +824,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     if(o.myoutbase == o.mybase) {
         memcpy(o.myoutbase, buffer, o.myoutnmemb * d.size);
-        free(buffer);
+        myfree(buffer);
     }
 
     MPI_Barrier(o.comm);

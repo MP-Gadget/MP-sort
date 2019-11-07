@@ -519,7 +519,7 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
 
     if(ThisTask == root) {
         if(recvbuffer == NULL)
-            recvbuffer = malloc(rdispls[NTask] * elsize);
+            recvbuffer = mymalloc("recvbuffer", rdispls[NTask] * elsize);
         if(totalnrecv)
             *totalnrecv = rdispls[NTask];
     } else {
@@ -558,7 +558,7 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
     }
 
     if(recvbuffer == NULL)
-        recvbuffer = malloc(nrecv * elsize);
+        recvbuffer = mymalloc("recvbuffer", nrecv * elsize);
 
     if(ThisTask == root) {
         if(totalnsend)

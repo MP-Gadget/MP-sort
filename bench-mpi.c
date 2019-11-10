@@ -8,6 +8,7 @@
 
 #include <mpi.h>
 #include "mpsort.h"
+#include "mpiu.h"
 
 static void radix_int(const void * ptr, void * radix, void * arg) {
     *(uint64_t*)radix = *(const int64_t*) ptr + INT64_MIN;
@@ -20,10 +21,10 @@ checksum(int64_t * data, size_t localsize, MPI_Comm comm)
     for(i = 0; i < localsize; i ++) {
         sum += data[i];
     }
-    
     MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_LONG, MPI_SUM, comm);
     return sum;
 }
+
 static void
 generate(int64_t * data, size_t localsize, int bits, int seed)
 {
@@ -126,8 +127,11 @@ int main(int argc, char * argv[]) {
     int staggered = 0;
     int bits=64;
 
-    while(-1 != (opt = getopt(argc, argv, "SsGgb:"))) {
+    while(-1 != (opt = getopt(argc, argv, "vSsGgb:"))) {
         switch(opt) {
+            case 'v':
+                MPIU_Set_verbose_malloc(MPI_COMM_WORLD);
+                break;
             case 'b':
                 bits = atoi(optarg);
                 if(ThisTask == 0) {
@@ -170,7 +174,6 @@ int main(int argc, char * argv[]) {
         usage();
         exit(-1);
     }
-    
     int64_t srcsize = atoi(argv[optind]);
 
     if(ThisTask == 0) {

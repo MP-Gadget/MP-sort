@@ -20,7 +20,7 @@ main: main.c libmpsort-omp.a libradixsort.a
 	$(CC) $(CFLAGS) -o main $^
 main-mpi: main-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o main-mpi $^
-bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a
+bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a mpiu.c
 	$(MPICC) $(CFLAGS) -o bench-mpi $^
 test-issue7: test-issue7.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o test-issue7 $^

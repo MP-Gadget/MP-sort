@@ -304,9 +304,9 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if(grouprank == segmenter->group_leader_rank) {
         if(mysegmentbase != mybase)
-            mpiu_free(mysegmentbase);
+            MPIU_Free(mysegmentbase);
         if(myoutsegmentbase != myoutbase)
-            mpiu_free(myoutsegmentbase);
+            MPIU_Free(myoutsegmentbase);
     }
 
     MPIU_Segmenter_destroy(segmenter);
@@ -578,7 +578,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     if(o.myoutbase == o.mybase) {
         memcpy(o.myoutbase, buffer, o.myoutnmemb * d.size);
-        mpiu_free(buffer);
+        MPIU_Free(buffer);
     }
 
     MPI_Barrier(o.comm);

@@ -2,12 +2,13 @@
 #define _MPIU_H_
 
 typedef void * (*mpiu_malloc_func)(const char * name, size_t size, const char * file, const int line, void * userdata);
-typedef void (*mpiu_free_func)(void * ptr, void * userdata);
+typedef void (*mpiu_free_func)(void * ptr, const char * file, const int line, void * userdata);
 
 void * mpiu_malloc(const char * name, size_t size, const char * file, const int line);
-void mpiu_free(void * ptr);
+void mpiu_free(void * ptr, const char * file, const int line);
 
 void mpiu_set_malloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata);
+void MPIU_Set_verbose_malloc(MPI_Comm comm);
 
 /*
  * Set the MPIU memory allocator. MPIU uses the allocator to provided a hook for tracking allocations of significance.
@@ -15,7 +16,7 @@ void mpiu_set_malloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userda
 #define MPIU_SetMalloc mpiu_set_malloc
 #define MPIU_MallocT(name, type, nmemb) MPIU_Malloc(name, sizeof(type), nmemb, __FILE__, __LINE__)
 #define MPIU_Malloc(name, elsize, nmemb) mpiu_malloc(name, ((size_t)(elsize)) * nmemb, __FILE__, __LINE__)
-#define MPIU_Free(ptr) mpiu_free(ptr)
+#define MPIU_Free(ptr) mpiu_free(ptr, __FILE__, __LINE__)
 
 /*
  * MPIU_Alltoallv:

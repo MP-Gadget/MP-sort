@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -6,7 +7,24 @@
 #include <mpi.h>
 #include "mpiu.h"
 static void * default_mpiu_malloc_func(const char * name, size_t size, const char * file, const int line, void * userdata) { return malloc(size); }
-static void default_mpiu_free_func(void * ptr, void * userdata) { free(ptr); }
+static void default_mpiu_free_func(void * ptr, const char * file, const int line, void * userdata) { free(ptr); }
+
+static void * verbose_mpiu_malloc_func(const char * name, size_t size, const char * file, const int line, void * userdata) {
+    MPI_Comm comm = (MPI_Comm) (intptr_t) userdata;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    void * ptr = malloc(size);
+    fprintf(stderr, "MPIU_Malloc: T%04d %016X : %s size = %ld, %s:%d\n", rank, ptr, name, size, file, line);
+    return ptr;
+}
+
+static void verbose_mpiu_free_func(void * ptr, const char * file, const int line, void * userdata) {
+    MPI_Comm comm = (MPI_Comm) (intptr_t) userdata;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    fprintf(stderr, "MPIU_Free: T%04d %016X : %s:%d\n", rank, ptr, file, line);
+    free(ptr);
+}
 
 static struct {
     mpiu_malloc_func malloc_func;
@@ -26,12 +44,18 @@ mpiu_set_malloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata)
     _MPIUMem.userdata = userdata;
 }
 
+void
+MPIU_Set_verbose_malloc(MPI_Comm comm)
+{
+    mpiu_set_malloc(verbose_mpiu_malloc_func, verbose_mpiu_free_func, (void*) (intptr_t) comm);
+}
+
 void * mpiu_malloc(const char * name, size_t size, const char * file, const int line) {
     return _MPIUMem.malloc_func(name, size, file, line, _MPIUMem.userdata);
 }
 
-void mpiu_free(void * ptr) {
-    _MPIUMem.free_func(ptr, _MPIUMem.userdata);
+void mpiu_free(void * ptr, const char * file, const int line) {
+    _MPIUMem.free_func(ptr, file, line, _MPIUMem.userdata);
 }
 
 /* The following two functions are taken from MP-Gadget. The hope

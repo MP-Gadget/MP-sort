@@ -11,7 +11,7 @@
 #include "mpsort.h"
 #include "internal.h"
 
-#include "mpiu.h"
+#include "mp-mpiu.h"
 #include "internal-parallel.h"
 
 static int _mpsort_mpi_options = 0;

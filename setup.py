@@ -35,13 +35,13 @@ extensions = [
         Extension("mpsort.binding", [
                 "mpsort/binding.pyx",
                 "radixsort.c",
-                "mpiu.c",
+                "mp-mpiu.c",
                 "mpsort-mpi.c"],
             include_dirs = ["./", numpy.get_include()],
             depends=[
                 "mpsort.h",
                 "mpsort-mpi.h",
-                "mpiu.h",
+                "mp-mpiu.h",
                 ]
             )
 ]

@@ -27,7 +27,7 @@ cdef extern from "mpsort.h":
 
 # Use the Python memory allocator for large allocations.
 #
-cdef extern from "mpiu.h":
+cdef extern from "mp-mpiu.h":
     ctypedef void * (*mpiu_malloc_func)(char * name, size_t size, char * file, int line, void * userdata)
     ctypedef void (*mpiu_free_func)(void * ptr, const char * file, int line, void * userdata)
     void MPIU_SetMalloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata)

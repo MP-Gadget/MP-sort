@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include <mpi.h>
-#include "mpiu.h"
+#include "mp-mpiu.h"
 static void * default_mpiu_malloc_func(const char * name, size_t size, const char * file, const int line, void * userdata) { return malloc(size); }
 static void default_mpiu_free_func(void * ptr, const char * file, const int line, void * userdata) { free(ptr); }
 

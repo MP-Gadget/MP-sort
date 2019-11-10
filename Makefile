@@ -20,7 +20,7 @@ main: main.c libmpsort-omp.a libradixsort.a
 	$(CC) $(CFLAGS) -o main $^
 main-mpi: main-mpi.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o main-mpi $^
-bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a mpiu.c
+bench-mpi: bench-mpi.c libmpsort-mpi.a libradixsort.a mp-mpiu.h
 	$(MPICC) $(CFLAGS) -o bench-mpi $^
 test-issue7: test-issue7.c libmpsort-mpi.a libradixsort.a
 	$(MPICC) $(CFLAGS) -o test-issue7 $^
@@ -35,9 +35,9 @@ libmpsort-omp.a: mpsort.h mpsort-omp.c
 	ar r libmpsort-omp.a mpsort-omp.o
 	ranlib libmpsort-omp.a
 
-libmpsort-mpi.a: mpsort.h mpsort-mpi.c mpiu.c mpiu.h internal-parallel.h internal.h
+libmpsort-mpi.a: mpsort.h mpsort-mpi.c internal-parallel.h internal.h mp-mpiu.c mp-mpiu.h 
 	$(MPICC) $(CFLAGS) -c -o mpsort-mpi.o mpsort-mpi.c
-	$(MPICC) $(CFLAGS) -c -o mpiu.o mpiu.c
-	ar r libmpsort-mpi.a mpsort-mpi.o mpiu.o
+	$(MPICC) $(CFLAGS) -c -o mp-mpiu.o mp-mpiu.c
+	ar r libmpsort-mpi.a mpsort-mpi.o mp-mpiu.o
 	ranlib libmpsort-mpi.a
 

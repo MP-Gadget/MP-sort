@@ -8,33 +8,15 @@
 #include "internal.h"
 
 /*****
- * msort.c is stripped from glibc git. 
+ * msort.c is stripped from glibc git.
  * qsort_r is not available till 2.8 but
- * most systems has older glibc 
+ * most systems has older glibc
  * ****/
 #include "stdlib/msort.c"
 
 
-/****
- * sort by radix;
- * internally this uses qsort_r of glibc.
- *
- **** */
-
-void radix_sort(void * base, size_t nmemb, size_t size, 
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
-        void * arg) {
-
-    struct crstruct d;
-    _setup_radix_sort(&d, base, nmemb, size, radix, rsize, arg);
-
-    mpsort_qsort_r(d.base, d.nmemb, d.size, _compute_and_compar_radix, &d);
-}
-
-
 /* implementation ; internal */
-int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
+static int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
     struct crstruct * d = arg;
     unsigned char r1[d->rsize], r2[d->rsize];
     d->radix(p1, r1, d->arg);
@@ -44,18 +26,36 @@ int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
 }
 
 
+/****
+ * sort by radix;
+ * internally this uses qsort_r of glibc.
+ *
+ **** */
+
+void radix_sort(void * base, size_t nmemb, size_t size,
+        void (*radix)(const void * ptr, void * radix, void * arg),
+        size_t rsize,
+        void * arg) {
+
+    struct crstruct d;
+    _setup_radix_sort(&d, base, nmemb, size, radix, rsize, arg);
+
+    mpsort_qsort_r(d.base, d.nmemb, d.size, _compute_and_compar_radix, &d);
+}
+
+
 #define DEFTYPE(type) \
 static int _compar_radix_ ## type ( \
         const type * u1,  \
         const type * u2,  \
-        void * junk) { \
+        size_t junk) { \
     return (signed) (*u1 > *u2) - (signed) (*u1 < *u2); \
 } \
 static void _bisect_radix_ ## type ( \
         type * u, \
         const type * u1,  \
         const type * u2,  \
-        void * junk) { \
+        size_t junk) { \
     *u = *u1 + ((*u2 - *u1) >> 1); \
 }
 DEFTYPE(uint16_t)
@@ -63,7 +63,7 @@ DEFTYPE(uint32_t)
 DEFTYPE(uint64_t)
 
 static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     /* from most significant */
     const unsigned char * u1 = r1;
     const unsigned char * u2 = r2;
@@ -80,7 +80,7 @@ static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir
     return 0;
 }
 static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     /* from most significant */
     const uint64_t * u1 = r1;
     const uint64_t * u2 = r2;
@@ -109,7 +109,7 @@ static int _compar_radix_be_u8(const void * r1, const void * r2, size_t rsize) {
     return _compar_radix_u8(r1, r2, rsize, +1);
 }
 static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsize, int dir) {
-    int i;
+    size_t i;
     const unsigned char * u1 = r1;
     const unsigned char * u2 = r2;
     unsigned char * u = r;
@@ -148,11 +148,14 @@ void _setup_radix_sort(
         void * base,
         size_t nmemb,
         size_t size,
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
+        void (*radix)(const void * ptr, void * radix, void * arg),
+        size_t rsize,
         void * arg) {
-    const char deadbeef[] = "deadbeef";
-    const uint32_t * ideadbeef = (uint32_t *) deadbeef;
+    /* Cheers stack overflow*/
+    union {
+        uint32_t i;
+        char c[4];
+    } be_detect = {0x01020304};
     d->base = base;
     d->nmemb = nmemb;
     d->rsize = rsize;
@@ -173,7 +176,7 @@ void _setup_radix_sort(
             d->bisect = (_bisect_fn_t) _bisect_radix_uint64_t;
             break;
         default:
-            if(ideadbeef[0] != 0xdeadbeef) {
+            if(be_detect.c[0] != 1) {
                 if(rsize % 8 == 0) {
                     d->compar = _compar_radix_le_u8;
                 } else{

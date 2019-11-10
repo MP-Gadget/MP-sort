@@ -84,7 +84,6 @@ TUNINGS = [
     ['REQUIRE_SPARSE_ALLTOALLV'],
     ['REQUIRE_GATHER_SORT'],
     ['DISABLE_GATHER_SORT'],
-    ['DISABLE_IALLREDUCE'],
 ]
 
 comm = MPITestFixture([1, 2, 3, 4], scope='function')

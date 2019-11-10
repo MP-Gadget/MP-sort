@@ -15,7 +15,6 @@ void mpsort_omp(void * base, size_t nmemb, size_t size,
 #ifdef MPI_VERSION
 /* MPI support */
 #define MPSORT_DISABLE_SPARSE_ALLTOALLV (1 << 1)
-#define MPSORT_DISABLE_IALLREDUCE (1 << 2)
 #define MPSORT_DISABLE_GATHER_SORT (1 << 3)
 #define MPSORT_REQUIRE_GATHER_SORT (1 << 4)
 #define MPSORT_REQUIRE_SPARSE_ALLTOALLV (1 << 6)

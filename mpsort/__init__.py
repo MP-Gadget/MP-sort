@@ -41,7 +41,6 @@ def sort(source, orderby=None, out=None, comm=None, tuning=[]):
 
         tuning: list of strings
             'ENABLE_SPARSE_ALLTOALLV'
-            'DISABLE_IALLREDUCE'
             'DISABLE_GATHER_SORT'
             'REQUIRE_GATHER_SORT'
             'REQUIRE_SPARSE_ALLTOALLV'

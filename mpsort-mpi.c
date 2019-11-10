@@ -13,17 +13,14 @@
 #include "internal.h"
 
 #include "internal-parallel.h"
+#include "mpi-funcs.c"
 
 static int _mpsort_mpi_options = 0;
 
-static int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
-
-/* mpi version of radix sort; 
+/* mpi version of radix sort;
  *
  * each caller provides the distributed array and number of items.
- * the sorted array is returned to the original array pointed to by 
+ * the sorted array is returned to the original array pointed to by
  * mybase. (AKA no rebalancing is done.)
  *
  * NOTE: may need an api to return a balanced array!
@@ -93,16 +90,16 @@ static void _destroy_mpsort_mpi(struct crmpistruct * o) {
 
 static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, size_t nmemb,
         size_t myoutnmemb,
-        unsigned char * Pmax, unsigned char * Pmin, 
+        unsigned char * Pmax, unsigned char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o);
 
 static int _solve_for_layout_mpi (
-        int NTask, 
+        int NTask,
         ptrdiff_t * C,
-        ptrdiff_t * myT_CLT, 
-        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_CLT,
+        ptrdiff_t * myT_CLE,
         ptrdiff_t * myT_C,
         MPI_Comm comm);
 
@@ -205,7 +202,7 @@ MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
     ptrdiff_t elsize;
     MPI_Type_get_extent(type, &lb, &elsize);
 
-    void * tmp = malloc(elsize);
+    void * tmp = ta_malloc("tmp", char, elsize);
     /* find the result of the reduction. */
     MPI_Allreduce(base, tmp, 1, type, op, comm);
 
@@ -219,11 +216,11 @@ MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
         rank = ThisTask;
     }
     /* find the rank that is the same as the reduction result */
-    /* avoid MPI_IN_PLACE, since if we are using this code, we have assumed we are using 
+    /* avoid MPI_IN_PLACE, since if we are using this code, we have assumed we are using
      * a crazy MPI impl...
      * */
     MPI_Allreduce(&rank, &ret, 1, MPI_INT, MPI_MIN, comm);
-    free(tmp);
+    myfree(tmp);
     return ret;
 }
 
@@ -325,7 +322,7 @@ static void *
 MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv);
 
 static uint64_t
-checksum(void * base, size_t nbytes, MPI_Comm comm)
+checksum(void * base, ptrdiff_t nbytes, MPI_Comm comm)
 {
     uint64_t sum = 0;
     char * ptr = base;
@@ -350,14 +347,18 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 {
 
     if(MPI_TYPE_PTRDIFF == 0) {
-        if(sizeof(ptrdiff_t) == sizeof(long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG;
-        }
-        if(sizeof(ptrdiff_t) == sizeof(long long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
-        }
         if(sizeof(ptrdiff_t) == sizeof(int)) {
             MPI_TYPE_PTRDIFF = MPI_INT;
+        }
+        else if(sizeof(ptrdiff_t) == sizeof(long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG;
+        }
+        else if(sizeof(ptrdiff_t) == sizeof(long long)) {
+            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
+        }
+        else {
+            fprintf(stderr, "MPSort: sizeof(ptrdiff) = %lu, not recognised\n", sizeof(ptrdiff_t));
+            MPI_Abort(comm, -1);
         }
     }
 
@@ -438,8 +439,8 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if (groupsize > 1) {
         if(grouprank == seggrp->group_leader_rank) {
-            mysegmentbase = malloc(mysegmentnmemb * elsize);
-            myoutsegmentbase = malloc(myoutsegmentnmemb * elsize);
+            mysegmentbase = mymalloc("mysegment", mysegmentnmemb * elsize);
+            myoutsegmentbase = mymalloc("outsegment", myoutsegmentnmemb * elsize);
         }
         MPIU_Gather(seggrp->Group, seggrp->group_leader_rank, mybase, mysegmentbase, mynmemb, elsize, NULL);
     } else {
@@ -477,9 +478,9 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if(grouprank == seggrp->group_leader_rank) {
         if(mysegmentbase != mybase)
-            free(mysegmentbase);
+            myfree(mysegmentbase);
         if(myoutsegmentbase != myoutbase)
-            free(myoutsegmentbase);
+            myfree(myoutsegmentbase);
     }
 
     _destroy_segment_group(seggrp);
@@ -518,7 +519,7 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
 
     if(ThisTask == root) {
         if(recvbuffer == NULL)
-            recvbuffer = malloc(rdispls[NTask] * elsize);
+            recvbuffer = mymalloc("recvbuffer", rdispls[NTask] * elsize);
         if(totalnrecv)
             *totalnrecv = rdispls[NTask];
     } else {
@@ -557,7 +558,7 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
     }
 
     if(recvbuffer == NULL)
-        recvbuffer = malloc(nrecv * elsize);
+        recvbuffer = mymalloc("recvbuffer", nrecv * elsize);
 
     if(ThisTask == root) {
         if(totalnsend)
@@ -586,10 +587,10 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     ptrdiff_t C[o.NTask + 1];  /* desired counts */
 
     ptrdiff_t myCLT[o.NTask + 1]; /* counts of less than P */
-    ptrdiff_t CLT[o.NTask + 1]; 
+    ptrdiff_t CLT[o.NTask + 1];
 
     ptrdiff_t myCLE[o.NTask + 1]; /* counts of less than or equal to P */
-    ptrdiff_t CLE[o.NTask + 1]; 
+    ptrdiff_t CLE[o.NTask + 1];
 
     int SendCount[o.NTask];
     int SendDispl[o.NTask];
@@ -629,42 +630,12 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         iter ++;
         piter_bisect(&pi, P);
 
-#if MPI_VERSION >= 3
-        if (1 || mpsort_mpi_has_options(MPSORT_DISABLE_IALLREDUCE)
-        ) {
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
-
-            MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-            MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-        } else {
-            /* overlap allreduce with histogramming by pipelining */
-            MPI_Request r[1];
-
-            
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, NULL, &d);
-            
-            /* reduce the bins just calculated */
-            MPI_Iallreduce(myCLT, CLT, o.NTask + 1,
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[0]);
-
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLE, NULL, &d);
-
-            MPI_Waitall(1, r, MPI_STATUSES_IGNORE);
-
-            MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-
-        }
-#else
         _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
 
-        MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
+        MPI_Allreduce(myCLT, CLT, o.NTask + 1,
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-        MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
+        MPI_Allreduce(myCLE, CLE, o.NTask + 1,
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-#endif
 
         (iter>10?tmr--:0, tmr->time = MPI_Wtime(), sprintf(tmr->name, "bisect%04d", iter), tmr++);
 
@@ -677,8 +648,8 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
                 int i;
                 if(o.ThisTask != k) continue;
 
-                printf("P (%d): PMin %d PMax %d P ", 
-                        o.ThisTask, 
+                printf("P (%d): PMin %d PMax %d P ",
+                        o.ThisTask,
                         *(int*) Pmin,
                         *(int*) Pmax
                         );
@@ -717,15 +688,15 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     /* transpose the matrix, could have been done with a new datatype */
     /*
-    MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF,
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
     */
-    MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF,
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    /*MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF, 
+    /*MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF,
             myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm); */
-    MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF,
             myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LayDistr"), tmr++);
@@ -733,7 +704,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
 
     myC[0] = 0;
-    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF,
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
 #if 0
     for(i = 0;i < o.NTask; i ++) {
@@ -741,9 +712,9 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         MPI_Barrier(o.comm);
         if(o.ThisTask != i) continue;
         for(j = 0; j < o.NTask + 1; j ++) {
-            printf("%d %d %d, ", 
-                    myCLT[j], 
-                    myC[j], 
+            printf("%d %d %d, ",
+                    myCLT[j],
+                    myC[j],
                     myCLE[j]);
         }
         printf("\n");
@@ -788,7 +759,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
             MPI_Barrier(o.comm);
 
             if(o.ThisTask != k) continue;
-            
+
             printf("P (%d): ", o.ThisTask);
             for(i = 0; i < o.NTask - 1; i ++) {
                 printf("%d ", ((int*) P) [i]);
@@ -842,18 +813,18 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     }
 #endif
     if(o.myoutbase == o.mybase)
-        buffer = malloc(d.size * o.myoutnmemb);
+        buffer = mymalloc("buffer", d.size * o.myoutnmemb);
     else
         buffer = o.myoutbase;
 
     MPI_Alltoallv_smart(
             o.mybase, SendCount, SendDispl, o.MPI_TYPE_DATA,
-            buffer, RecvCount, RecvDispl, o.MPI_TYPE_DATA, 
+            buffer, RecvCount, RecvDispl, o.MPI_TYPE_DATA,
             o.comm);
 
     if(o.myoutbase == o.mybase) {
         memcpy(o.myoutbase, buffer, o.myoutnmemb * d.size);
-        free(buffer);
+        myfree(buffer);
     }
 
     MPI_Barrier(o.comm);
@@ -895,13 +866,13 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         memset(myPmax, 0, d->rsize);
     }
 
-    MPI_Allgather(&mynmemb, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Allgather(&mynmemb, 1, MPI_TYPE_PTRDIFF,
             eachnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
-    MPI_Allgather(&myoutnmemb, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Allgather(&myoutnmemb, 1, MPI_TYPE_PTRDIFF,
             eachoutnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
-    MPI_Allgather(myPmax, 1, o->MPI_TYPE_RADIX, 
+    MPI_Allgather(myPmax, 1, o->MPI_TYPE_RADIX,
             eachPmax, 1, o->MPI_TYPE_RADIX, o->comm);
-    MPI_Allgather(myPmin, 1, o->MPI_TYPE_RADIX, 
+    MPI_Allgather(myPmin, 1, o->MPI_TYPE_RADIX,
             eachPmin, 1, o->MPI_TYPE_RADIX, o->comm);
 
 
@@ -927,10 +898,10 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
 
 static int
 _solve_for_layout_mpi (
-        int NTask, 
+        int NTask,
         ptrdiff_t * C,
-        ptrdiff_t * myT_CLT, 
-        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_CLT,
+        ptrdiff_t * myT_CLE,
         ptrdiff_t * myT_C,
         MPI_Comm comm) {
     int i, j;
@@ -942,13 +913,13 @@ _solve_for_layout_mpi (
         myT_C[i] = myT_CLT[i];
     }
 
-    /* Solve for each receiving task i 
+    /* Solve for each receiving task i
      *
      * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
      *
      * and we have GL_C[..., 0] == 0 by definition.
      *
-     * this cannot be done in parallel wrt i because of the dependency. 
+     * this cannot be done in parallel wrt i because of the dependency.
      *
      *  a solution is guaranteed because GL_CLE and GL_CLT
      *  brackes the total counts C (we've found it with the
@@ -993,182 +964,6 @@ _solve_for_layout_mpi (
 
 
 
-/* The following two functions are taken from MP-Gadget. The hope 
- * is that when the exchange is sparse posting requests is
- * faster than Alltoall on some implementations. */
-
-static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
-
-int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
-/* 
- * sdispls, recvcnts rdispls can be NULL,
- *
- * if recvbuf is NULL, returns total number of item required to hold the
- * data.
- * */
-{
-    int ThisTask;
-    int NTask;
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
-    int i;
-    int nn = 0;
-    int *a_sdispls=NULL, *a_recvcnts=NULL, *a_rdispls=NULL;
-    for(i = 0; i < NTask; i ++) {
-        if(sendcnts[i] > 0) {
-            nn ++;
-        }
-    }
-    if(recvcnts == NULL) {
-        a_recvcnts = malloc(sizeof(int) * NTask);
-        recvcnts = a_recvcnts;
-        MPI_Alltoall(sendcnts, 1, MPI_INT,
-                     recvcnts, 1, MPI_INT, comm);
-    }
-    if(recvbuf == NULL) {
-        int totalrecv = 0;
-        for(i = 0; i < NTask; i ++) {
-            totalrecv += recvcnts[i];
-        }
-        if(a_recvcnts)
-            free(a_recvcnts);
-        return totalrecv;
-    }
-    if(sdispls == NULL) {
-        a_sdispls = malloc(sizeof(int) * NTask);
-        sdispls = a_sdispls;
-        sdispls[0] = 0;
-        for (i = 1; i < NTask; i++) {
-            sdispls[i] = sdispls[i - 1] + sendcnts[i - 1];
-        }
-    }
-    if(rdispls == NULL) {
-        a_rdispls = malloc(sizeof(int) * NTask);
-        rdispls = a_rdispls;
-        rdispls[0] = 0;
-        for (i = 1; i < NTask; i++) {
-            rdispls[i] = rdispls[i - 1] + recvcnts[i - 1];
-        }
-    }
-
-    int dense;
-
-    if(mpsort_mpi_has_options(MPSORT_DISABLE_SPARSE_ALLTOALLV)
-    ) {
-        dense = 1;
-    } else {
-        dense = nn > 128;
-        MPI_Allreduce(MPI_IN_PLACE, &dense, 1, MPI_INT, MPI_SUM, comm);
-    }
-
-    if(mpsort_mpi_has_options(MPSORT_REQUIRE_SPARSE_ALLTOALLV)) {
-        dense = 0;
-    }
-
-    int ret;
-    if(dense != 0) {
-        ret = MPI_Alltoallv(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
-                    recvcnts, rdispls, recvtype, comm);
-    } else {
-        ret = MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
-                    recvcnts, rdispls, recvtype, comm);
-    }
-
-    if(a_rdispls)
-        free(a_rdispls);
-    if(a_sdispls)
-        free(a_sdispls);
-    if(a_recvcnts)
-        free(a_recvcnts);
-    return ret;
-}
-
-static int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
-
-    int ThisTask;
-    int NTask;
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
-    int PTask;
-    int ngrp;
-
-    for(PTask = 0; NTask > (1 << PTask); PTask++);
-
-    ptrdiff_t lb;
-    ptrdiff_t send_elsize;
-    ptrdiff_t recv_elsize;
-
-    MPI_Type_get_extent(sendtype, &lb, &send_elsize);
-    MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
-
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    int n_requests;
-    MPI_Request *requests = malloc(NTask * 2 * sizeof(MPI_Request));
-    n_requests = 0;
-
-
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-
-        if(target >= NTask) continue;
-        if(recvcnts[target] == 0) continue;
-        MPI_Irecv(
-                ((char*) recvbuf) + recv_elsize * rdispls[target], 
-                recvcnts[target],
-                recvtype, target, 101934, comm, &requests[n_requests++]);
-    }
-
-    MPI_Barrier(comm);
-    /* not really necessary, but this will guarantee that all receives are
-       posted before the sends, which helps the stability of MPI on
-       bluegene, and perhaps some mpich1-clusters */
-    /* Note 08/2016: Even on modern hardware this barrier leads to a slight speedup.
-     * Probably because it allows the code to hit a fast path transfer.*/
-
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-        if(target >= NTask) continue;
-        if(sendcnts[target] == 0) continue;
-        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target],
-                sendtype, target, 101934, comm, &requests[n_requests++]);
-    }
-
-    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-    free(requests);
-#else
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-
-        if(target >= NTask) continue;
-        if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target], sendtype, 
-                target, 101934,
-                ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype, 
-                target, 101934, 
-                comm, MPI_STATUS_IGNORE);
-
-    }
-#endif
-    /* ensure the collective-ness */
-    MPI_Barrier(comm);
-
-    return 0;
-}
-
 static void _mpsort_mpi_parse_env()
 {
     static int _mpsort_env_parsed = 0;
@@ -1177,8 +972,6 @@ static void _mpsort_mpi_parse_env()
     _mpsort_env_parsed = 1;
     if(getenv("MPSORT_DISABLE_SPARSE_ALLTOALLV"))
         mpsort_mpi_set_options(MPSORT_DISABLE_SPARSE_ALLTOALLV);
-    if(getenv("MPSORT_DISABLE_IALLREDUCE"))
-        mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE);
     if(getenv("MPSORT_DISABLE_GATHER_SORT"))
         mpsort_mpi_set_options(MPSORT_DISABLE_GATHER_SORT);
     if(getenv("MPSORT_REQUIRE_GATHER_SORT "))

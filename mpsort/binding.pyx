@@ -13,7 +13,6 @@ cdef extern from "radixsort.c":
 
 cdef extern from "mpsort-mpi.c":
     int MPSORT_DISABLE_SPARSE_ALLTOALLV
-    int MPSORT_DISABLE_IALLREDUCE
     int MPSORT_DISABLE_GATHER_SORT
     int MPSORT_REQUIRE_GATHER_SORT
     int MPSORT_REQUIRE_SPARSE_ALLTOALLV
@@ -132,7 +131,6 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
 
         tuning: list of strings
             'DISABLE_SPARSE_ALLTOALLV'
-            'DISABLE_IALLREDUCE'
             'DISABLE_GATHER_SORT'
             'REQUIRE_GATHER_SORT'
             'REQUIRE_SPARSE_ALLTOALLV'
@@ -183,8 +181,6 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
 
     if 'DISABLE_SPARSE_ALLTOALLV' in tuning:
         mpsort_mpi_set_options(MPSORT_DISABLE_SPARSE_ALLTOALLV)
-    if 'DISABLE_IALLREDUCE' in tuning:
-        mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE)
     if 'DISABLE_GATHER_SORT' in tuning:
         mpsort_mpi_set_options(MPSORT_DISABLE_GATHER_SORT)
     if 'REQUIRE_GATHER_SORT' in tuning:

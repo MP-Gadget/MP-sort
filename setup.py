@@ -32,8 +32,19 @@ class build_ext_subclass(build_ext):
         build_ext.build_extensions(self)
 
 extensions = [
-        Extension("mpsort.binding", ["mpsort/binding.pyx"],
-            include_dirs = ["./", numpy.get_include()])]
+        Extension("mpsort.binding", [
+                "mpsort/binding.pyx",
+                "radixsort.c",
+                "mpiu.c",
+                "mpsort-mpi.c"],
+            include_dirs = ["./", numpy.get_include()],
+            depends=[
+                "mpsort.h",
+                "mpsort-mpi.h",
+                "mpiu.h",
+                ]
+            )
+]
 
 def find_version(path):
     import re

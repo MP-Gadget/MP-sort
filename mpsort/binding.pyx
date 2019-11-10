@@ -8,10 +8,7 @@ from libc.stdlib cimport abort
 import numpy
 from mpi4py import MPI as pyMPI
 
-cdef extern from "radixsort.c":
-    pass
-
-cdef extern from "mpsort-mpi.c":
+cdef extern from "mpsort.h":
     int MPSORT_DISABLE_SPARSE_ALLTOALLV
     int MPSORT_DISABLE_GATHER_SORT
     int MPSORT_REQUIRE_GATHER_SORT

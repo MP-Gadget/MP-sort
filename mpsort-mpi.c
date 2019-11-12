@@ -218,8 +218,18 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
     size_t outsizes[NTask];
     size_t myoffset;
     size_t myoutoffset;
+    /* comput sizes for both input and output to avoid any of them getting too imbalanced */
     size_t totalsize = MPIU_Segmenter_collect_sizes(mynmemb, sizes, &myoffset, comm);
-    MPIU_Segmenter_collect_sizes(myoutnmemb, outsizes, &myoutoffset, comm);
+    size_t totalsizeout = MPIU_Segmenter_collect_sizes(myoutnmemb, outsizes, &myoutoffset, comm);
+
+    if(totalsize != totalsizeout) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Input and output size mismatch: %td (in) != %td (out)"
+                            "Caller site: %s:%d\n",
+                            totalsize, totalsizeout, file, line);
+        }
+        MPI_Abort(comm, -1);
+    }
 
     size_t avgsegsize = NTask; /* combine very small ranks to segments */
     if (avgsegsize * elsize > 4 * 1024 * 1024) {

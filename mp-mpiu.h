@@ -79,10 +79,14 @@ typedef struct MPIU_Segmenter {
 size_t
 MPIU_Segmenter_collect_sizes(size_t localsize, size_t * sizes, size_t * myoffset, MPI_Comm comm);
 
+/* MPIU_segmenter_init: Create a Segmenter.
+ * the total number of items according to both sizes and sizes2 will not
+ * exceed the epxected_segsize by too much.
+ * */
 void
 MPIU_Segmenter_init(MPIU_Segmenter * segmenter,
-               size_t * sizes,   /* IN: size limit per rank */
-               size_t * outsizes, /* IN: if given, secondary size limit per rank */
+               size_t * sizes,   /* IN: size per rank, used to bound the number of ranks in a group. */
+               size_t * sizes2,  /* IN: if given, secondary size used to bound the number of ranks in a group. */
                size_t expected_segsize, /* desired size per segment */
                int Ngroup,  /* number of groups to form. */
                MPI_Comm comm);

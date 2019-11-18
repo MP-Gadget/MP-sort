@@ -1,17 +1,16 @@
 #cython: embedsignature=True
 cimport numpy
 cimport libmpi as MPI
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.stddef cimport ptrdiff_t
 from libc.stdint cimport uint64_t, int64_t, uint32_t, int32_t
 from libc.string cimport memcpy
 from libc.stdlib cimport abort
+from libc.stddef cimport ptrdiff_t
 import numpy
 from mpi4py import MPI as pyMPI
 
-cdef extern from "radixsort.c":
-    pass
-
-cdef extern from "mpsort-mpi.c":
+cdef extern from "mpsort.h":
     int MPSORT_DISABLE_SPARSE_ALLTOALLV
     int MPSORT_DISABLE_GATHER_SORT
     int MPSORT_REQUIRE_GATHER_SORT
@@ -26,13 +25,29 @@ cdef extern from "mpsort-mpi.c":
             size_t rsize, 
             void * arg, MPI.MPI_Comm comm)
 
-cdef struct MyClosure:
-    int elsize
-    void (*myradix)(const void * ptr, void * radix, void * arg) nogil
+# Use the Python memory allocator for large allocations.
+#
+cdef extern from "mp-mpiu.h":
+    ctypedef void * (*mpiu_malloc_func)(char * name, size_t size, char * file, int line, void * userdata)
+    ctypedef void (*mpiu_free_func)(void * ptr, const char * file, int line, void * userdata)
+    void MPIU_SetMalloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata)
+
+cdef void * pymalloc(char * name, size_t size, char * file, int line, void * userdata):
+    return PyMem_Malloc(size)
+
+cdef void pyfree(void * ptr, char * file, int line, void * userdata):
+    PyMem_Free(ptr)
+
+MPIU_SetMalloc(pymalloc, pyfree, NULL)
+
+# how to build the radix:
+cdef struct RadixData:
+    void (*radix_func)(const void * ptr, void * radix, void * arg) nogil
     ptrdiff_t radix_offset
+    int elsize
     int radix_nmemb
 
-cdef closure_init(MyClosure * self, numpy.dtype dtype, radixkey):
+cdef radix_data_init(RadixData * self, numpy.dtype dtype, radixkey):
     cdef numpy.dtype radixdtype
 
     self.elsize = dtype.itemsize
@@ -53,54 +68,54 @@ cdef closure_init(MyClosure * self, numpy.dtype dtype, radixkey):
     #print 'radix nmemb =', self.radix_nmemb
     #print 'radix dtype.shape = ', radixdtype.shape
     if radixdtype.base == numpy.dtype('u8'):
-        self.myradix = myradix_u8
+        self.radix_func = radix_func_u8
     elif radixdtype.base == numpy.dtype('i8'):
-        self.myradix = myradix_i8
+        self.radix_func = radix_func_i8
     elif radixdtype.base == numpy.dtype('u4'):
-        self.myradix = myradix_u4
+        self.radix_func = radix_func_u4
     elif radixdtype.base == numpy.dtype('i4'):
-        self.myradix = myradix_i4
+        self.radix_func = radix_func_i4
     else:
         raise TypeError("data[%s] is not u8 or i8" % (radixkey))
 
-cdef void myradix_u8(const void * ptr, void * radix, void * arg) nogil:
-    cdef MyClosure *clo = <MyClosure*> arg
+cdef void radix_func_u8(const void * ptr, void * radix, void * arg) nogil:
+    cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radix_nmemb):
-        value = (<uint64_t *> (cptr + clo.radix_offset))[i]
+    for i in range(radixdata.radix_nmemb):
+        value = (<uint64_t *> (cptr + radixdata.radix_offset))[i]
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void myradix_i8(const void * ptr, void * radix, void * arg) nogil:
-    cdef MyClosure *clo = <MyClosure*> arg
+cdef void radix_func_i8(const void * ptr, void * radix, void * arg) nogil:
+    cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radix_nmemb):
-        value = (<int64_t *> (cptr + clo.radix_offset))[i]
+    for i in range(radixdata.radix_nmemb):
+        value = (<int64_t *> (cptr + radixdata.radix_offset))[i]
         value += <uint64_t> 9223372036854775808uL
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void myradix_u4(const void * ptr, void * radix, void * arg) nogil:
-    cdef MyClosure *clo = <MyClosure*> arg
+cdef void radix_func_u4(const void * ptr, void * radix, void * arg) nogil:
+    cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radix_nmemb):
-        value = (<uint32_t *> (cptr + clo.radix_offset))[i]
+    for i in range(radixdata.radix_nmemb):
+        value = (<uint32_t *> (cptr + radixdata.radix_offset))[i]
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void myradix_i4(const void * ptr, void * radix, void * arg) nogil:
-    cdef MyClosure *clo = <MyClosure*> arg
+cdef void radix_func_i4(const void * ptr, void * radix, void * arg) nogil:
+    cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
     cdef uint64_t value
-    for i in range(clo.radix_nmemb):
-        value = (<int32_t *> (cptr + clo.radix_offset))[i]
+    for i in range(radixdata.radix_nmemb):
+        value = (<int32_t *> (cptr + radixdata.radix_offset))[i]
         value += <uint64_t> 9223372036854775808uL
         memcpy(rptr, &value, 8)
         rptr += 8
@@ -135,7 +150,7 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
             'REQUIRE_GATHER_SORT'
             'REQUIRE_SPARSE_ALLTOALLV'
     """
-    cdef MyClosure clo
+    cdef RadixData radixdata
     cdef MPI.MPI_Comm mpicomm
 
     # assert you can access the orderby columns.
@@ -173,7 +188,7 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
     if data.dtype.itemsize != out.dtype.itemsize:
         raise ValueError("item size mismatch")
 
-    closure_init(&clo, data.dtype, orderby)
+    radix_data_init(&radixdata, data.dtype, orderby)
 
     # hope that GIL ensures nobody will mess with the options
 
@@ -190,6 +205,6 @@ def sort(numpy.ndarray data, orderby=None, numpy.ndarray out=None, comm=None, tu
 
     mpsort_mpi_newarray(data.data, len(data),
             out.data, len(out),
-            data.dtype.itemsize, clo.myradix,
-            clo.radix_nmemb * 8, <void*>&clo, mpicomm)
+            data.dtype.itemsize, radixdata.radix_func,
+            radixdata.radix_nmemb * 8, <void*>&radixdata, mpicomm)
 

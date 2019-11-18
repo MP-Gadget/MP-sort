@@ -1,5 +1,3 @@
-#include "mymalloc.h"
-
 /*
  * returns index of the last item satisfying
  * [item] < P,
@@ -138,11 +136,11 @@ struct piter {
 static void piter_init(struct piter * pi,
         unsigned char * Pmin, unsigned char * Pmax, int Plength,
         struct crstruct * d) {
-    pi->stable = ta_malloc("stable", int, Plength);
-    pi->narrow = ta_malloc("narrow", int, Plength);
+    pi->stable = malloc(Plength * sizeof(int));
+    pi->narrow = malloc(Plength * sizeof(int));
     pi->d = d;
-    pi->Pleft = ta_malloc("Pleft", unsigned char, d->rsize * Plength);
-    pi->Pright = ta_malloc("Pright", unsigned char, d->rsize * Plength);
+    pi->Pleft = malloc(d->rsize * Plength);
+    pi->Pright = malloc(d->rsize * Plength);
     pi->Plength = Plength;
 
     int i;
@@ -154,10 +152,10 @@ static void piter_init(struct piter * pi,
     }
 }
 static void piter_destroy(struct piter * pi) {
-    myfree(pi->stable);
-    myfree(pi->narrow);
-    myfree(pi->Pleft);
-    myfree(pi->Pright);
+    free(pi->stable);
+    free(pi->narrow);
+    free(pi->Pleft);
+    free(pi->Pright);
 }
 
 /*

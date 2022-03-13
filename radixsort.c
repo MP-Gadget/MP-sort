@@ -65,8 +65,8 @@ DEFTYPE(uint64_t)
 static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
     /* from most significant */
-    const unsigned char * u1 = r1;
-    const unsigned char * u2 = r2;
+    const unsigned char * u1 =  (const unsigned char *) r1;
+    const unsigned char * u2 = (const unsigned char *) r2;
     if(dir < 0) {
         u1 += rsize - 1;
         u2 += rsize - 1;;
@@ -82,8 +82,8 @@ static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir
 static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
     /* from most significant */
-    const uint64_t * u1 = r1;
-    const uint64_t * u2 = r2;
+    const uint64_t * u1 = (const uint64_t *) r1;
+    const uint64_t * u2 = (const uint64_t *) r2;
     if(dir < 0) {
         u1 = (const uint64_t *) ((const unsigned char*) u1 + rsize - 8);
         u2 = (const uint64_t *) ((const unsigned char*) u2 + rsize - 8);
@@ -110,9 +110,9 @@ static int _compar_radix_be_u8(const void * r1, const void * r2, size_t rsize) {
 }
 static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
-    const unsigned char * u1 = r1;
-    const unsigned char * u2 = r2;
-    unsigned char * u = r;
+    const unsigned char * u1 = (const unsigned char *) r1;
+    const unsigned char * u2 = (const unsigned char *) r2;
+    unsigned char * u = (unsigned char *) r;
     unsigned int carry = 0;
     if(dir > 0) {
         u1 += rsize - 1;

@@ -149,7 +149,7 @@ static uint64_t
 checksum(void * base, ptrdiff_t nbytes, MPI_Comm comm)
 {
     uint64_t sum = 0;
-    char * ptr = base;
+    char * ptr = (char *) base;
     ptrdiff_t i = 0;
     for(i = 0; i < nbytes; i ++) {
         sum += ptr[i];
@@ -569,7 +569,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     }
 #endif
     if(o.myoutbase == o.mybase)
-        buffer = MPIU_Malloc("buffer", d.size, o.myoutnmemb);
+        buffer = (char *) MPIU_Malloc("buffer", d.size, o.myoutnmemb);
     else
         buffer = o.myoutbase;
 

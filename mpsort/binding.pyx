@@ -32,10 +32,10 @@ cdef extern from "mp-mpiu.h":
     ctypedef void (*mpiu_free_func)(void * ptr, const char * file, int line, void * userdata) except*
     void MPIU_SetMalloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata)
 
-cdef void * pymalloc(char * name, size_t size, char * file, int line, void * userdata):
+cdef void * pymalloc(char * name, size_t size, char * file, int line, void * userdata) except? NULL:
     return PyMem_Malloc(size)
 
-cdef void pyfree(void * ptr, char * file, int line, void * userdata):
+cdef void pyfree(void * ptr, char * file, int line, void * userdata) except*:
     PyMem_Free(ptr)
 
 MPIU_SetMalloc(pymalloc, pyfree, NULL)

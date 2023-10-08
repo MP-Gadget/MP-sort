@@ -8,7 +8,7 @@
 
 #include <mpi.h>
 #include "mpsort.h"
-#include "mpiu.h"
+#include "mp-mpiu.h"
 
 static void radix_int(const void * ptr, void * radix, void * arg) {
     *(uint64_t*)radix = *(const int64_t*) ptr + INT64_MIN;

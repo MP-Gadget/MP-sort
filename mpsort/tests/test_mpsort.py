@@ -54,7 +54,7 @@ def test_sort_i8(comm):
 
 @MPITest(commsize=(1, 2, 3, 4))
 def test_sort_u8(comm):
-    s = numpy.uint64(numpy.random.random(size=1000) * 1000 - 400)
+    s = numpy.uint64(numpy.random.uniform(size=1000, low=-1000000, high=1000000) * 1000 - 400)
 
     local = split(s, comm)
     s = heal(local, comm)

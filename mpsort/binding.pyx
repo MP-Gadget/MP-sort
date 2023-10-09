@@ -28,21 +28,21 @@ cdef extern from "mpsort.h":
 # Use the Python memory allocator for large allocations.
 #
 cdef extern from "mp-mpiu.h":
-    ctypedef void * (*mpiu_malloc_func)(char * name, size_t size, char * file, int line, void * userdata)
-    ctypedef void (*mpiu_free_func)(void * ptr, const char * file, int line, void * userdata)
+    ctypedef void * (*mpiu_malloc_func)(char * name, size_t size, char * file, int line, void * userdata) except? NULL 
+    ctypedef void (*mpiu_free_func)(void * ptr, const char * file, int line, void * userdata) except*
     void MPIU_SetMalloc(mpiu_malloc_func malloc, mpiu_free_func free, void * userdata)
 
-cdef void * pymalloc(char * name, size_t size, char * file, int line, void * userdata):
+cdef void * pymalloc(char * name, size_t size, char * file, int line, void * userdata) except? NULL:
     return PyMem_Malloc(size)
 
-cdef void pyfree(void * ptr, char * file, int line, void * userdata):
+cdef void pyfree(void * ptr, char * file, int line, void * userdata) except*:
     PyMem_Free(ptr)
 
 MPIU_SetMalloc(pymalloc, pyfree, NULL)
 
 # how to build the radix:
 cdef struct RadixData:
-    void (*radix_func)(const void * ptr, void * radix, void * arg) nogil
+    void (*radix_func)(const void * ptr, void * radix, void * arg) noexcept nogil
     ptrdiff_t radix_offset
     int elsize
     int radix_nmemb
@@ -78,7 +78,7 @@ cdef radix_data_init(RadixData * self, numpy.dtype dtype, radixkey):
     else:
         raise TypeError("data[%s] is not u8 or i8" % (radixkey))
 
-cdef void radix_func_u8(const void * ptr, void * radix, void * arg) nogil:
+cdef void radix_func_u8(const void * ptr, void * radix, void * arg) noexcept nogil:
     cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
@@ -88,7 +88,7 @@ cdef void radix_func_u8(const void * ptr, void * radix, void * arg) nogil:
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void radix_func_i8(const void * ptr, void * radix, void * arg) nogil:
+cdef void radix_func_i8(const void * ptr, void * radix, void * arg) noexcept nogil:
     cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
@@ -99,7 +99,7 @@ cdef void radix_func_i8(const void * ptr, void * radix, void * arg) nogil:
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void radix_func_u4(const void * ptr, void * radix, void * arg) nogil:
+cdef void radix_func_u4(const void * ptr, void * radix, void * arg) noexcept nogil:
     cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr
@@ -109,7 +109,7 @@ cdef void radix_func_u4(const void * ptr, void * radix, void * arg) nogil:
         memcpy(rptr, &value, 8)
         rptr += 8
 
-cdef void radix_func_i4(const void * ptr, void * radix, void * arg) nogil:
+cdef void radix_func_i4(const void * ptr, void * radix, void * arg) noexcept nogil:
     cdef RadixData *radixdata = <RadixData*> arg
     cdef char * rptr = <char*>radix
     cdef char * cptr = <char*> ptr

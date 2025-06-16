@@ -30,17 +30,17 @@ jobs:
         python -m build
     - name: Install
       run:
-        python -m pip install --user dist/*.whl
+        python -m pip install --user dist/mpsort*.whl
     - name: Python unit tests
       run: |
-#        python setup.py build_ext --inplace
-#        pytest
-#    - export CFLAGS="${CFLAGS} -Wall"
         pip install runtests
         python runtests.py --mpirun="mpirun -n 4"
     - name: Version
       run: bash check_tag.sh mpsort/version.py
-
+#pytest unit tests
+#        python setup.py build_ext --inplace
+#        pytest
+#    - export CFLAGS="${CFLAGS} -Wall"
 #deploy:
 #    - provider: pypi
 #      distributions: sdist

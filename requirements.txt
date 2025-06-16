@@ -1,0 +1,5 @@
+setuptools
+wheel
+numpy
+cython
+mpi4py

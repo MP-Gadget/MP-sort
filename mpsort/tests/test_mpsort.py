@@ -316,6 +316,7 @@ def test_histogram_empty(comm):
     mpsort.histogram([], [1], comm)
     # no error shall be raised
 
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.parametrize("tuning", TUNINGS)
 def test_empty_sort(comm, tuning):
     s = numpy.empty(0, dtype=[

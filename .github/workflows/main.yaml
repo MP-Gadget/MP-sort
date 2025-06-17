@@ -22,25 +22,28 @@ jobs:
       uses: actions/setup-python@v5
     - name: Install dependencies
       run: |
+        sudo apt update
+        sudo apt install -y build-essential libopenmpi-dev openmpi-bin python3-numpy cython3 python3-mpi4py
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install build pytest
+        pip install build pytest pytest-mpi
     - name: Build
       run: |
         python -m build
     - name: Install
       run:
-        python -m pip install --user dist/*.whl
+        python -m pip install --user dist/mpsort*.whl
     - name: Python unit tests
       run: |
-#        python setup.py build_ext --inplace
-#        pytest
-#    - export CFLAGS="${CFLAGS} -Wall"
-        pip install runtests
-        python runtests.py --mpirun="mpirun -n 4"
+        python setup.py build_ext --inplace
+        pytest
+        mpirun -n 1 python -m pytest --with-mpi
+        mpirun -n 2 python -m pytest --with-mpi
+        mpirun -n 3 --oversubscribe python -m pytest --with-mpi
+        mpirun -n 4 --oversubscribe python -m pytest --with-mpi
     - name: Version
       run: bash check_tag.sh mpsort/version.py
-
+#    - export CFLAGS="${CFLAGS} -Wall"
 #deploy:
 #    - provider: pypi
 #      distributions: sdist

@@ -3,6 +3,7 @@ import numpy
 from numpy.testing import assert_array_equal
 from itertools import product
 import pytest
+from mpi4py import MPI
 
 def split(array, comm, localsize=None):
     array = comm.bcast(array)
@@ -25,7 +26,7 @@ def adjustsize(size, comm):
             ressize = size
     return ressize
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_i4(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000 - 400)
@@ -39,7 +40,7 @@ def test_sort_i4(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_i8(comm):
     s = numpy.int64(numpy.random.random(size=1000) * 1000 - 400)
@@ -53,7 +54,7 @@ def test_sort_i8(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_u8(comm):
     s = numpy.uint64(numpy.random.uniform(size=1000, low=-1000000, high=1000000) * 1000 - 400)
@@ -67,7 +68,7 @@ def test_sort_u8(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_u4(comm):
     s = numpy.uint32(numpy.random.random(size=1000) * 1000 - 400)
@@ -89,7 +90,7 @@ TUNINGS = [
     ['DISABLE_GATHER_SORT'],
 ]
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.parametrize("tuning", TUNINGS)
 @pytest.mark.mpi
 def test_sort_tunings(comm, tuning):
@@ -106,7 +107,7 @@ def test_sort_tunings(comm, tuning):
     assert_array_equal(s, r)
 
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_inplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
@@ -121,7 +122,7 @@ def test_sort_inplace(comm):
     s.sort()
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_mismatched_zeros(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
@@ -138,7 +139,7 @@ def test_sort_mismatched_zeros(comm):
     r = heal(res, comm)
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_outplace(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
@@ -155,7 +156,7 @@ def test_sort_outplace(comm):
     r = heal(res, comm)
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_flatiter(comm):
     s = numpy.int32(numpy.random.random(size=1000) * 1000)
@@ -172,7 +173,7 @@ def test_sort_flatiter(comm):
     r = heal(res, comm)
     assert_array_equal(s, r)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_struct(comm):
     s = numpy.empty(10, dtype=[
@@ -197,7 +198,7 @@ def test_sort_struct(comm):
     backup.sort(order='key')
     assert_array_equal(backup['value'], r['value'])
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_struct_vector(comm):
     s = numpy.empty(10, dtype=[
@@ -224,7 +225,7 @@ def test_sort_struct_vector(comm):
     s.sort(order='key')
     assert_array_equal(s['value'], r['value'])
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_sort_vector(comm):
     s = numpy.empty(10, dtype=[('value', 'i8')])
@@ -249,7 +250,7 @@ def test_sort_vector(comm):
     assert_array_equal(s['value'], r['value'])
 
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_permute(comm):
     s = numpy.arange(10)
@@ -263,7 +264,7 @@ def test_permute(comm):
     assert res.size == ind.size
     assert_array_equal(r, s)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_permute_out(comm):
     s = numpy.arange(10)
@@ -277,7 +278,7 @@ def test_permute_out(comm):
     s = s[i]
     assert_array_equal(r, s)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_take(comm):
     s = numpy.arange(10)
@@ -291,7 +292,7 @@ def test_take(comm):
     assert res.size == ind.size
     assert_array_equal(r, s)
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_take_out(comm):
     s = numpy.arange(10)
@@ -309,7 +310,7 @@ def test_version():
     import mpsort
     assert hasattr(mpsort, "__version__")
 
-@pytest.mark.parametrize("comm_size", [1, 2, 3, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_histogram_empty(comm):
     mpsort.histogram([], [1], comm)
@@ -325,7 +326,7 @@ def test_empty_sort(comm, tuning):
     mpsort.sort(s, 'vkey', out=s, comm=comm, tuning=tuning)
 
 
-@pytest.mark.parametrize("comm_size", [4])
+@pytest.mark.parametrize("comm4", [MPI.COMM_WORLD,])
 @pytest.mark.parametrize("sizes, tuning",
    product(product(*([[0, 1, 2]] * 4)), TUNINGS))
 @pytest.mark.mpi
@@ -527,7 +528,7 @@ aARoCEMEAwAAAHKaBAAAhnKbBAAAUnKcBAAAaARoCEMEvgIoRXKdBAAAhnKeBAAAUnKfBAAAaARo
 CEMEkAYnRXKgBAAAhnKhBAAAUnKiBAAAaARoCEMEwrirRHKjBAAAhnKkBAAAUnKlBAAAZWUu
 """
 @pytest.mark.parametrize("tuning", TUNINGS)
-@pytest.mark.parametrize("comm_size", [12,])
+@pytest.mark.parametrize("comm12", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
 def test_issue7(comm12, tuning):
     # This roughly mimics the behavior of issue7, with data size of 40 bytes;
